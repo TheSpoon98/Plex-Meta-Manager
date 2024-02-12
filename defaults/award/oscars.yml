@@ -16,7 +16,7 @@ collections:
       key: best_picture
     template:
       - name: shared
-        sort: Oscars !1
+        sort: Oscars !01
         allowed_libraries: movie
         image: award/oscars/best_picture_winner
         translation_key: oscars_picture
@@ -37,7 +37,7 @@ collections:
       key: best_director
     template:
       - name: shared
-        sort: Oscars !2
+        sort: Oscars !02
         allowed_libraries: movie
         image: award/oscars/best_director_winner
         translation_key: oscars_director
@@ -52,6 +52,420 @@ collections:
         - best director, comedy picture
         - best director, dramatic picture
       winning: true
+
+  Oscars Best Picture Nominees:
+    variables:
+      key: best_picture_nomination
+    template:
+      - name: shared
+        sort: Oscars !03
+        allowed_libraries: movie
+        image: award/oscars/best_picture_nomination
+        translation_key: oscars_picture_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best motion picture of the year
+
+  Oscars Best Leading Actor Nominees:
+    variables:
+      key: best_leading_actor_nomination
+    template:
+      - name: shared
+        sort: Oscars !04
+        allowed_libraries: movie
+        image: award/oscars/best_leading_actor_nomination
+        translation_key: oscars_leading_actor_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best performance by an actor in a leading role
+
+  Oscars Best Leading Actress Nominees:
+    variables:
+      key: best_leading_actress_nomination
+    template:
+      - name: shared
+        sort: Oscars !05
+        allowed_libraries: movie
+        image: award/oscars/best_leading_actress_nomination
+        translation_key: oscars_leading_actress_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best performance by an actress in a leading role
+
+  Oscars Best Supporting Actor Nominees:
+    variables:
+      key: best_supporting_actor_nomination
+    template:
+      - name: shared
+        sort: Oscars !06
+        allowed_libraries: movie
+        image: award/oscars/best_supporting_actor_nomination
+        translation_key: oscars_supporting_actor_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best performance by an actor in a supporting role
+
+  Oscars Best Supporting Actress Nominees:
+    variables:
+      key: best_supporting_actress_nomination
+    template:
+      - name: shared
+        sort: Oscars !07
+        allowed_libraries: movie
+        image: award/oscars/best_supporting_actress_nomination
+        translation_key: oscars_supporting_actress_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best performance by an actress in a supporting role
+
+  Oscars Best Director Nominees:
+    variables:
+      key: best_director_nomination
+    template:
+      - name: shared
+        sort: Oscars !08
+        allowed_libraries: movie
+        image: award/oscars/best_director_nomination
+        translation_key: oscars_director_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best achievement in directing
+
+  Oscars Best Original Screenplay Nominees:
+    variables:
+      key: best_original_screenplay_nomination
+    template:
+      - name: shared
+        sort: Oscars !09
+        allowed_libraries: movie
+        image: award/oscars/best_original_screenplay_nomination
+        translation_key: oscars_original_screenplay_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best original screenplay
+
+  Oscars Best Adapted Screenplay Nominees:
+    variables:
+      key: best_adapted_screenplay_nomination
+    template:
+      - name: shared
+        sort: Oscars !10
+        allowed_libraries: movie
+        image: award/oscars/best_adapted_screenplay_nomination
+        translation_key: oscars_adapted_screenplay_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best adapted screenplay
+
+  Oscars Best Cinematography Nominees:
+    variables:
+      key: best_cinematography_nomination
+    template:
+      - name: shared
+        sort: Oscars !11
+        allowed_libraries: movie
+        image: award/oscars/best_cinematography_nomination
+        translation_key: oscars_achievement_in_cinematography_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best achievement in cinematography
+
+  Oscars Best Film Editing Nominees:
+    variables:
+      key: best_film_editing_nomination
+    template:
+      - name: shared
+        sort: Oscars !12
+        allowed_libraries: movie
+        image: award/oscars/best_film_editing_nomination
+        translation_key: oscars_achievement_in_film_editing_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best achievement in film editing
+
+  Oscars Best Production Design Nominees:
+    variables:
+      key: best_production_design_nomination
+    template:
+      - name: shared
+        sort: Oscars !13
+        allowed_libraries: movie
+        image: award/oscars/best_production_design_nomination
+        translation_key: oscars_production_design_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best achievement in production design
+
+  Oscars Best Costume Design Nominees:
+    variables:
+      key: best_costume_design_nomination
+    template:
+      - name: shared
+        sort: Oscars !14
+        allowed_libraries: movie
+        image: award/oscars/best_costume_design_nomination
+        translation_key: oscars_costume_design_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best achievement in costume design
+
+  Oscars Best Sound Nominees:
+    variables:
+      key: best_sound_nomination
+    template:
+      - name: shared
+        sort: Oscars !15
+        allowed_libraries: movie
+        image: award/oscars/best_sound_nomination
+        translation_key: oscars_sound_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best sound
+
+  Oscars Best Makeup And Hairstyling Nominees:
+    variables:
+      key: best_makeup_and_hairstyling_nomination
+    template:
+      - name: shared
+        sort: Oscars !16
+        allowed_libraries: movie
+        image: award/oscars/best_makeup_and_hairstyling_nomination
+        translation_key: oscars_makeup_and_hairstyling_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best achievement in makeup and hairstyling
+
+  Oscars Best Original Score Nominees:
+    variables:
+      key: best_original_score_nomination
+    template:
+      - name: shared
+        sort: Oscars !17
+        allowed_libraries: movie
+        image: award/oscars/best_original_score_nomination
+        translation_key: oscars_original_score_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best achievement in music written for motion pictures (original score)
+
+  Oscars Best Original Song Nominees:
+    variables:
+      key: best_original_song_nomination
+    template:
+      - name: shared
+        sort: Oscars !18
+        allowed_libraries: movie
+        image: award/oscars/best_original_song_nomination
+        translation_key: oscars_original_song_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best achievement in music written for motion pictures (original song)
+
+  Oscars Best Visual Effects Nominees:
+    variables:
+      key: best_visual_effects_nomination
+    template:
+      - name: shared
+        sort: Oscars !19
+        allowed_libraries: movie
+        image: award/oscars/best_visual_effects_nomination
+        translation_key: oscars_visual_effects_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best achievement in visual effects
+
+  Oscars Best Documentary Feature Nominees:
+    variables:
+      key: best_documentary_feature_nomination
+    template:
+      - name: shared
+        sort: Oscars !20
+        allowed_libraries: movie
+        image: award/oscars/best_documentary_feature_nomination
+        translation_key: oscars_documentary_feature_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best documentary feature
+
+  Oscars Best Animated Feature Film Nominees:
+    variables:
+      key: best_animated_feature_film_nomination
+    template:
+      - name: shared
+        sort: Oscars !21
+        allowed_libraries: movie
+        image: award/oscars/best_animated_feature_film_nomination
+        translation_key: oscars_animated_feature_film_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best animated feature film
+
+  Oscars Best Animated Short Film Nominees:
+    variables:
+      key: best_animated_short_film_nomination
+    template:
+      - name: shared
+        sort: Oscars !22
+        allowed_libraries: movie
+        image: award/oscars/best_animated_short_film_nomination
+        translation_key: oscars_animated_short_film_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best animated short film
+
+  Oscars Best Live Action Short Film Nominees:
+    variables:
+      key: best_live_action_short_film_nomination
+    template:
+      - name: shared
+        sort: Oscars !23
+        allowed_libraries: movie
+        image: award/oscars/best_live_action_short_film_nomination
+        translation_key: oscars_live_action_short_film_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best live action short film
+
+  Oscars Best Documentary Short Film Nominees:
+    variables:
+      key: best_documentary_short_film_nomination
+    template:
+      - name: shared
+        sort: Oscars !24
+        allowed_libraries: movie
+        image: award/oscars/best_documentary_short_film_nomination
+        translation_key: oscars_documentary_short_film_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best documentary short film
+
+  Oscars Best International Feature Film Nominees:
+    variables:
+      key: best_international_feature_film_nomination
+    template:
+      - name: shared
+        sort: Oscars !25
+        allowed_libraries: movie
+        image: award/oscars/best_international_feature_film_nomination
+        translation_key: oscars_international_feature_film_nomination
+        schedule: range(01/01-03/31)
+      - name: arr
+      - name: custom
+    imdb_award:
+      event_id: ev0000003
+      event_year: latest
+      category_filter:
+        - best international feature film
 
 dynamic_collections:
   Oscars Winners Awards:
@@ -77,6 +491,34 @@ dynamic_collections:
         default: movie
       image:
         default: award/oscars/winner/<<key>>
+      translation_key:
+        default: oscars_year
+      dynamic:
+        default: true
+
+  Oscars Nominees:
+    type: imdb_awards
+    sync: true
+    data:
+      event_id: ev0000003
+      starting: latest
+      ending: latest
+    title_format: Oscars Nominees <<key_name>>
+    template:
+      - use_year_collections
+      - imdb_award
+      - shared
+      - arr
+      - custom
+    template_variables:
+      winning:
+        default: false
+      collection_order:
+        default: release
+      allowed_libraries:
+        default: movie
+      image:
+        default: award/oscars/nomination/<<key>>
       translation_key:
         default: oscars_year
       dynamic:
