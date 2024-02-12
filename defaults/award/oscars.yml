@@ -205,7 +205,7 @@ collections:
         sort: Oscars !11
         allowed_libraries: movie
         image: award/oscars/best_cinematography_nomination
-        translation_key: oscars_achievement_in_cinematography_nomination
+        translation_key: oscars_cinematography_nomination
         schedule: range(01/01-03/31)
       - name: arr
       - name: custom
@@ -223,7 +223,7 @@ collections:
         sort: Oscars !12
         allowed_libraries: movie
         image: award/oscars/best_film_editing_nomination
-        translation_key: oscars_achievement_in_film_editing_nomination
+        translation_key: oscars_film_editing_nomination
         schedule: range(01/01-03/31)
       - name: arr
       - name: custom
