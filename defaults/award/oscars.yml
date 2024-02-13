@@ -491,7 +491,7 @@ dynamic_collections:
         default: movie
       image:
         default: award/oscars/winner/<<key>>
-      # translation_key:
+      translation_key:
         default: oscars_year
       dynamic:
         default: true
@@ -520,6 +520,6 @@ dynamic_collections:
       image:
         default: award/oscars/nomination/<<key>>
       # translation_key:
-        default: oscars_year
+        # default: oscars_year
       dynamic:
         default: true
