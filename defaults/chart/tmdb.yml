@@ -2,14 +2,14 @@
 #                          TMDb Charts Collections                           #
 #                 Created by Yozora, Bullmoose20, & Sohjiro                  #
 #          EDITING THIS FILE MAY CAUSE PULLING NEW UPDATES TO FAIL           #
-#           https://metamanager.wiki/en/latest/defaults/chart/tmdb           #
+#             https://kometa.wiki/en/latest/defaults/chart/tmdb              #
 ##############################################################################
 
 external_templates:
-  pmm: templates
+  default: templates
   template_variables:
     collection_section: "020"
-    image: chart/<<mapping_name_encoded>>
+    image: chart/<<style>>/<<mapping_name_encoded>>
 
 templates:
   tmdb:
@@ -22,6 +22,7 @@ templates:
 collections:
   TMDb Popular:
     variables:
+      style: color
       key: popular
     template:
       - name: tmdb
@@ -32,6 +33,7 @@ collections:
 
   TMDb Top Rated:
     variables:
+      style: color
       key: top
     template:
       - name: tmdb
@@ -43,6 +45,7 @@ collections:
 
   TMDb Trending:
     variables:
+      style: color
       key: trending
     template:
       - name: tmdb
@@ -54,6 +57,7 @@ collections:
 
   TMDb Airing Today:
     variables:
+      style: color
       key: airing
     template:
       - name: tmdb
@@ -66,6 +70,7 @@ collections:
 
   TMDb On The Air:
     variables:
+      style: color
       key: air
     template:
       - name: tmdb

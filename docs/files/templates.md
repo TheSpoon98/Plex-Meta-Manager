@@ -1,3 +1,7 @@
+---
+hide:
+  - toc
+---
 # Templates
 
 Collection, Playlist, Metadata, and Overlay Files often share a lot of common or generalizable configuration details. 
@@ -45,11 +49,10 @@ collections/playlists [except `template`; templates cannot be nested].
 
 In addition, templates also have a few special attributes that they can use:
 
-??? blank "`default` - Sets what template variables default to.<a class="headerlink" href="#default" title="Permanent link">¶</a>"
+??? blank "`default` - Sets what Template Variables default to.<a class="headerlink" href="#default" title="Permanent link">¶</a>"
 
-    <div id="default" />The `default` attribute allows default values for template variables to be used if they're not 
-    specified in the call. It's value is a dictionary of key value pairs where the key is the template variable and the 
-    value is the default value to set it to when not provided.
+    <div id="default" />The `default` attribute allows default values for Template Variables which will be used if they're not 
+    specified in the call. You need to provide a list :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-lists" } of variables and the value that variable should get if not told differently when the template is referenced. See the tooltips below.
 
     **A variable cannot be default if it is a conditional variable.**
 
@@ -81,18 +84,18 @@ In addition, templates also have a few special attributes that they can use:
               person: 73457
         ```
         
-        1. This sets the default value of the template variable `my_sync_mode` to `sync`.
-        2. The value for template variable `my_sync_mode` will replace `<<my_sync_mode>>` here.
-        3. This specifiys that `my_sync_mode` for this definition will be `append`.
+        1. This sets the default value of the Template Variable `my_sync_mode` to `sync`.
+        2. The value for Template Variable `my_sync_mode` will replace `<<my_sync_mode>>` here.
+        3. This specifies that `my_sync_mode` for this definition will be `append`.
         4. Since `my_sync_mode` is not passed to this definition the value of `my_sync_mode` will be the default `sync`.
 
-??? blank "`optional` - List of template variables to be removed when not provided.<a class="headerlink" href="#optional" title="Permanent link">¶</a>"
+??? blank "`optional` - List of Template Variables to be removed when not provided.<a class="headerlink" href="#optional" title="Permanent link">¶</a>"
 
     <div id="optional" />The `optional` attribute can specify variables that when not specified on the template call 
-    will cause any attribute using one of those variables to be ignored in the template. It's value is a list of 
-    template variables to be considered optional.
+    will cause any attribute using one of those variables to be ignored in the template. Its value is a list of 
+    Template Variables to be considered optional.
 
-    **You can make any template variable optional per collection by setting it to `null`.**
+    **You can make any Template Variable optional per collection by setting it to `null`.**
 
     **A variable cannot be optional if it is a conditional variable or has a default value.**
 
@@ -124,45 +127,45 @@ In addition, templates also have a few special attributes that they can use:
               person: 73457
         ```
         
-        1. This sets the template variable `my_sync_mode` as an optional variable.
-        2. The value for template variable `my_sync_mode` will replace `<<my_sync_mode>>` here or removed as optional.
-        3. This specifiys that `my_sync_mode` for this definition will be `append`.
+        1. This sets the Template Variable `my_sync_mode` as an optional variable.
+        2. The value for Template Variable `my_sync_mode` will replace `<<my_sync_mode>>` here or removed as optional.
+        3. This specifies that `my_sync_mode` for this definition will be `append`.
         4. Since `my_sync_mode` is not passed to this definition it will ignore the entire `sync_mode` attribute in the 
         template.
 
-??? blank "`conditionals` - Can set template variables based on other template variables.<a class="headerlink" href="#conditionals" title="Permanent link">¶</a>"
+??? blank "`conditionals` - Can set Template Variables based on other Template Variables.<a class="headerlink" href="#conditionals" title="Permanent link">¶</a>"
 
     <div id="conditionals" />Each conditional is identified by its mapping name under the top level `conditionals` 
     attribute can have these attributes:
 
     |  Attribute   | Description                                                                                                                                                                                                                                                      |
     |:------------:|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    | `conditions` | A list of condition blocks where if all conditions are met then the variable will be the `value` specified in that condition block. Once all conditions in a block are met, that `value` will be used and no other blocks will be run.<br>**This attribute is required** |
+    | `conditions` | A list :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-lists" } of condition blocks where if all conditions are met then the variable will be the `value` specified in that condition block. Once all conditions in a block are met, that `value` will be used and no other blocks will be run.<br>**This attribute is required** |
     |  `default`   | The default value for when no condition block is met. If default is not specified the variable becomes an optional variable.<br>**This attribute is optional**                                                                                                         |
     
     #### Condition Blocks
 
-    A condition block consists of one or more key value pairs comparing given template variables to pre supplied static 
+    A condition block consists of one or more key value pairs comparing given Template Variables to pre supplied static 
     values. 
 
-    The key is the name of the template variable who's value you want to compare. While the value is the staic value or 
+    The key is the name of the Template Variable whose value you want to compare, while the value is the static value or 
     values to compare aginst. Every condition block must also have the `value` key which will be the value of the 
-    template variable if all the conditions in that block are met.
+    Template Variable if all the conditions in that block are met.
 
     There are three ways to compare values:
 
     1. Using no modifier:
 
-        * The given template variable's value must equal the static value or be in the list of static values.
+        * The given Template Variable's value must equal the static value or be in the list of static values.
 
-    2. Using the not modifier by appending `.not` to the key template variable:
+    2. Using the not modifier by appending `.not` to the key Template Variable:
 
-        * The given template variable's value must not equal the static value or not be in the list of static values.
+        * The given Template Variable's value must not equal the static value or not be in the list of static values.
 
-    3. Using the exists modifier by appending `.exists` to the key template variable:
+    3. Using the exists modifier by appending `.exists` to the key Template Variable:
 
-        * While `true` the template variable specified must exist in the template call.
-        * While anything but `true` the template variable specified must not exist in the template call.
+        * While `true` the Template Variable specified must exist in the template call.
+        * While anything but `true` the Template Variable specified must not exist in the template call.
 
     ???+ example "Example"
 
@@ -192,13 +195,13 @@ In addition, templates also have a few special attributes that they can use:
         ```
 
         1. This is the main `conditionals` attribute to start the whole seciton.
-        2. This is the main mapping of the conditional template variable `offset`.
+        2. This is the main mapping of the conditional Template Variable `offset`.
         3. This sets the default variable of `offset` to `15`.
         4. This is the base attribute for the condition blocks.
         5. If the variable `align` is not provided to the template then set the variable to `150`.
         6. If the variable `align` is passed with the value `center` then set the variable to `0`.
         7. If the variable `align` is passed with the value `top` or `bottom` then set the variable to `15`.
-        8. This is the main mapping of the conditional template variable `key_name`.<br><br>Since `default` is not used 
+        8. This is the main mapping of the conditional Template Variable `key_name`.<br><br>Since `default` is not used 
         `key_name` will be added to the optional variable list.
         9. This is the base attribute for the condition blocks.
         10. If the variable `style` is passed with the value `standards` and the variable `key` is passed with the value 
@@ -208,9 +211,9 @@ In addition, templates also have a few special attributes that they can use:
 
 ??? blank "`move_prefix` - List of prefixes to move to the end of the collection/playlist name for sorting.<a class="headerlink" href="#move-prefix" title="Permanent link">¶</a>"
 
-    <div id="move-prefix" />The `move_prefix` attribute can be used to specify a list or comma-separated string of 
-    prefixes to move to the end of the collection/playlist name for sorting. This changes the template variables
-    `collection_sort` and `playlist_sort`.
+    <div id="move-prefix" />The `move_prefix` attribute can be used to specify a List :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-lists" } or comma-separated string of 
+    prefixes to move to the end of the collection/playlist name for sorting. This changes the Template Variables
+    `collection_sort`, `playlist_sort`, and `mapping_sort`.
 
     ???+ example "Example"
 
@@ -231,30 +234,31 @@ In addition, templates also have a few special attributes that they can use:
               name: Movies
               tmdb_id: 86311
           Iron Man:
-            template:
+    1        template:
               name: Movies
               tmdb_id: 131292
         ```
 
-Every template also has access to these template variables:
+Every template also has access to these Template Variables:
 
 * Either `<<collection_name>>`, `<<playlist_name>>`, or `<<overlay_name>>` which is the name of the definition.
 * `<<mapping_name>>` is the original mapping name for the definition in the YAML file.
 * Either `<<collection_sort>>` or `<<playlist_sort>>` which is the name of the definition after `move_prefix` is applied.
+* `<<mapping_sort>>` which is the original mapping name for the definition after `move_prefix` is applied.
 * `<<library_type>>` which is the library type (`movie`, `show`, `artist`, `video`).
 * `<<library_name>>` which is the name of the library.
-* All template variables can append `_encoded` to the variable name to use a URL encode version of the variable. ex. 
+* All Template Variables can append `_encoded` to the variable name to use a URL encode version of the variable. ex. 
 `<<collection_name_encoded>>`
 
 ## Template Call
 
 To call a template from a definition you use the `template` attribute with the `name` attribute under it. Any attribute 
-besides `name` under `template` is considered a template variables which are used to define the data that going to be 
+besides `name` under `template` is considered a Template Variables which are used to define the data that going to be 
 changing in the template.
 
 ???+ tip
 
-    The name of the template and the template variable names that you define are arbitrary, but they must match exactly 
+    The name of the template and the Template Variable names that you define are arbitrary, but they must match exactly 
     between the template definition and the template call.
 
 ### Template Name
@@ -291,10 +295,10 @@ template mapping name you want to call.
 
 ### Template Variables
 
-Any other attribute aside from `name` under `template` is considered a template variable whose name must correspond 
-exactly with the template variable name surrounded by `<<` and `>>` in the template definition. These template variables
-will replace any part of any value that contains the template variable name surrounded by `<<` and `>>` in the template 
-with the specified template variable's value.
+Any other attribute aside from `name` under `template` is considered a Template Variable whose name must correspond 
+exactly with the Template Variable name surrounded by `<<` and `>>` in the template definition. These Template Variables
+will replace any part of any value that contains the Template Variable name surrounded by `<<` and `>>` in the template 
+with the specified Template Variable's value.
 
 ??? example "Template Variables Example (click to expand)"
     
@@ -319,9 +323,9 @@ with the specified template variable's value.
           person: 73457 #(3)!
     ```
 
-    1. The template variable `person` will replace `<<person>>` here.
-    2. This calls the `Actor` template with the template variable `person` set to `19429` using inline YAML syntax.
-    3. This calls the `Actor` template with the template variable `person` set to `73457` using a more readable YAML syntax.
+    1. The Template Variable `person` will replace `<<person>>` here.
+    2. This calls the `Actor` template with the Template Variable `person` set to `19429` using inline YAML syntax.
+    3. This calls the `Actor` template with the Template Variable `person` set to `73457` using a more readable YAML syntax.
 
 ### Multi-Template Variables
 
@@ -382,10 +386,10 @@ collections:
 ```
 
 1. This is wrapped in quotes because it contains a character [`!`] which has 
-[syntactic meaning in YAML files](../pmm/yaml.md#string-literals). This "quoting special characters" is a general YAML 
+[syntactic meaning in YAML files](../kometa/yaml.md#string-literals). This "quoting special characters" is a general YAML 
 requirement, not something specific to `sort_title`.
 2. This is wrapped in quotes because it contains a character [`!`] which has 
-[syntactic meaning in YAML files](../pmm/yaml.md#string-literals). This "quoting special characters" is a general YAML requirement, not something 
+[syntactic meaning in YAML files](../kometa/yaml.md#string-literals). This "quoting special characters" is a general YAML requirement, not something 
 specific to `sort_title`.
 
 You can continue adding definitions this way, but there's a lot of repetition there. Both of these collections have the 
@@ -410,7 +414,7 @@ templates:
 The only things that change are the ID that is used with `tmdb_person` and the name of the collection that is used 
 in `sort_title`.
 
-Those two things surrounded by `<< >>` are "template variables" that you can define for any collection using this 
+Those two things surrounded by `<< >>` are "Template Variables" that you can define for any collection using this 
 template, like this:
 
 ```yaml
@@ -430,10 +434,10 @@ collections:
 ```
 
 Note that we provide the template name `Actor` and the value to insert in the place of `<<person>>`. The 
-`<<collection_name>>` is a template variable that is always available and doesn't have to be called out like 
+`<<collection_name>>` is a Template Variable that is always available and doesn't have to be called out like 
 `<<person>>`.
 
-Here's the full example Actor template and two different ways to use it, as it would appear in a collection file.
+Here's the full example Actor template and two different ways to use it, as it would appear in a Collection File.
 
 ```yaml
 templates:
@@ -494,5 +498,5 @@ collections:
 ```
 
 Check out the example files in the 
-[Plex Meta Manager Configs Repository](https://github.com/meisnate12/Plex-Meta-Manager-Configs/tree/master/meisnate12) 
+[Kometa Community Configs Repository](https://github.com/Kometa-Team/Community-Configs/tree/master/meisnate12) 
 for more uses and examples.

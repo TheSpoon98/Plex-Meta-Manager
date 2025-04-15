@@ -2,22 +2,22 @@ import time
 from datetime import datetime
 from json import JSONDecodeError
 from modules import util
+from modules.request import urlparse
 from modules.util import Failed, LimitReached
-from urllib.parse import urlparse
 
 logger = util.logger
 
 builders = ["mdblist_list"]
 sort_names = [
-    "rank", "score", "score_average", "released", "imdbrating", "imdbvotes", "imdbpopular", "tmdbpopular",
-    "rogerebert", "rtomatoes", "rtaudience", "metacritic", "myanimelist", "letterrating", "lettervotes", 
-    "updated", "last_air_date", "watched", "rating", "usort", "added", "runtime", "budget", "revenue", "title"
+    "rank", "score", "score_average", "released", "releaseddigital", "imdbrating", "imdbvotes", "imdbpopular",
+    "tmdbpopular", "rogerebert", "rtomatoes", "rtaudience", "metacritic", "myanimelist", "letterrating", "lettervotes",
+    "last_air_date", "watched", "rating", "download", "usort", "added", "runtime", "budget", "revenue", "title", "random"
 ]
 list_sorts = [f"{s}.asc" for s in sort_names] + [f"{s}.desc" for s in sort_names]
 base_url = "https://mdblist.com/lists"
 api_url = "https://mdblist.com/api/"
 
-headers = {"User-Agent": "Plex-Meta-Manager"}
+headers = {"User-Agent": "Kometa"}
 
 class MDbObj:
     def __init__(self, data):
@@ -71,9 +71,10 @@ class MDbObj:
         self.age_rating = data["age_rating"]
 
 
-class Mdblist:
-    def __init__(self, config):
-        self.config = config
+class MDBList:
+    def __init__(self, requests, cache):
+        self.requests = requests
+        self.cache = cache
         self.apikey = None
         self.expiration = 60
         self.limit = False
@@ -86,12 +87,23 @@ class Mdblist:
         self.expiration = expiration
         try:
             response = self._request(f"{api_url}user")
+            logger.trace(f"MDB response: {response}")
+            
             self.supporter = response["limits"]["supporter"]
+            logger.info(f"Supporter Key: {self.supporter}")
+            
             self.rating_id_limit = response["limits"]["rating_ids"]
+            # logger.info(f"Rating ID limit: {self.rating_id_limit}")
+            
+            self.api_limit = response["limits"]["api_requests"]
+            logger.info(f"Daily API requests: {self.api_limit}")
+
             self.get_item(imdb_id="tt0080684", ignore_cache=True)
         except LimitReached:
+            logger.info(f"MDBList API limit exhausted")
             self.limit = True
-        except Failed:
+        except Failed as fe:
+            logger.info(f"MDBList API connection failed: {fe}")
             self.apikey = None
             raise
 
@@ -108,14 +120,14 @@ class Mdblist:
                 final_params[k] = v
         try:
             time.sleep(0.2 if self.supporter else 1)
-            response = self.config.get_json(url, params=final_params)
+            response = self.requests.get_json(url, params=final_params)
         except JSONDecodeError:
-            raise Failed("Mdblist Error: JSON Decoding Failed")
+            raise Failed("MDBList Error: JSON Decoding Failed")
         if "response" in response and (response["response"] is False or response["response"] == "False"):
             if response["error"] in ["API Limit Reached!", "API Rate Limit Reached!"]:
                 self.limit = True
-                raise LimitReached(f"MdbList Error: {response['error']}")
-            raise Failed(f"MdbList Error: {response['error']}")
+                raise LimitReached(f"MDBList Error: {response['error']}")
+            raise Failed(f"MDBList Error: {response['error']}")
         return response
 
     def get_item(self, imdb_id=None, tmdb_id=None, tvdb_id=None, is_movie=True, ignore_cache=False):
@@ -132,16 +144,16 @@ class Mdblist:
             params["m"] = "movie" if is_movie else "show"
             key = f"{'tvm' if is_movie else 'tvs'}{tvdb_id}"
         else:
-            raise Failed("MdbList Error: Either IMDb ID, TVDb ID, or TMDb ID and TMDb Type Required")
+            raise Failed("MDBList Error: Either IMDb ID, TVDb ID, or TMDb ID and TMDb Type Required")
         expired = None
-        if self.config.Cache and not ignore_cache:
-            mdb_dict, expired = self.config.Cache.query_mdb(key, self.expiration)
+        if self.cache and not ignore_cache:
+            mdb_dict, expired = self.cache.query_mdb(key, self.expiration)
             if mdb_dict and expired is False:
                 return MDbObj(mdb_dict)
         logger.trace(f"ID: {key}")
         mdb = MDbObj(self._request(api_url, params=params))
-        if self.config.Cache and not ignore_cache:
-            self.config.Cache.update_mdb(expired, key, mdb, self.expiration)
+        if self.cache and not ignore_cache:
+            self.cache.update_mdb(expired, key, mdb, self.expiration)
         return mdb
 
     def get_imdb(self, imdb_id):
@@ -185,12 +197,12 @@ class Mdblist:
             sort_by = "rank.asc"
             if "sort_by" in dict_methods:
                 if mdb_dict[dict_methods["sort_by"]] is None:
-                    logger.warning(f"{error_type} Warning: mdb_list sort_by attribute is blank using score as default")
+                    logger.warning(f"{error_type} Warning: mdb_list sort_by attribute is blank using the default rank.asc")
                 elif mdb_dict[dict_methods["sort_by"]].lower() in sort_names:
                     logger.warning(f"{error_type} Warning: mdb_list sort_by attribute {mdb_dict[dict_methods['sort_by']]} is missing .desc or .asc defaulting to .desc")
                     sort_by = f"{mdb_dict[dict_methods['sort_by']].lower()}.desc"
                 elif mdb_dict[dict_methods["sort_by"]].lower() not in list_sorts:
-                    logger.warning(f"{error_type} Warning: mdb_list sort_by attribute {mdb_dict[dict_methods['sort_by']]} not valid score as default. Options: {', '.join(list_sorts)}")
+                    logger.warning(f"{error_type} Warning: mdb_list sort_by attribute {mdb_dict[dict_methods['sort_by']]} not valid using the default rank.asc. Options: {', '.join(list_sorts)}")
                 else:
                     sort_by = mdb_dict[dict_methods["sort_by"]].lower()
             valid_lists.append({"url": mdb_url, "limit": list_count, "sort_by": sort_by})
@@ -198,7 +210,7 @@ class Mdblist:
 
     def get_tmdb_ids(self, method, data, is_movie=None):
         if method == "mdblist_list":
-            logger.info(f"Processing Mdblist.com List: {data['url']}")
+            logger.info(f"Processing MDBList.com List: {data['url']}")
             logger.info(f"Sort By: {data['sort_by']}")
             sort, direction = data["sort_by"].split(".")
             params = {"sort": sort, "sortorder": direction}
@@ -212,18 +224,18 @@ class Mdblist:
             url_base = url_base if url_base.endswith("/") else f"{url_base}/"
             url_base = url_base if url_base.endswith("json/") else f"{url_base}json/"
             try:
-                response = self.config.get_json(url_base, headers=headers, params=params)
+                response = self.requests.get_json(url_base, headers=headers, params=params)
                 if (isinstance(response, dict) and "error" in response) or (isinstance(response, list) and response and "error" in response[0]):
                     err = response["error"] if isinstance(response, dict) else response[0]["error"]
                     if err in ["empty", "empty or private list"]:
-                        raise Failed(f"Mdblist Error: No Items Returned. Lists can take 24 hours to update so try again later.")
-                    raise Failed(f"Mdblist Error: Invalid Response {response}")
+                        raise Failed(f"MDBList Error: No Items Returned. Lists can take 24 hours to update so try again later.")
+                    raise Failed(f"MDBList Error: Invalid Response {response}")
                 results = []
                 for item in response:
-                    if item["mediatype"] in ["movie", "show"]:
+                    if item["mediatype"] in ["movie", "show"] and item["id"]:
                         results.append((item["id"], "tmdb" if item["mediatype"] == "movie" else "tmdb_show"))
                 return results
             except JSONDecodeError:
-                raise Failed(f"Mdblist Error: Invalid JSON Response received")
+                raise Failed(f"MDBList Error: Invalid JSON Response received")
         else:
-            raise Failed(f"Mdblist Error: Method {method} not supported")
+            raise Failed(f"MDBList Error: Method {method} not supported")

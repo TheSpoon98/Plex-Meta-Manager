@@ -1,15 +1,18 @@
-site_name: Plex Meta Manager Wiki
+site_name: Kometa Wiki
 site_author: meisnate12
-site_description: Plex Meta Manager is an open-source python project allowing you to unlock the potential of your media server.
-site_url: https://<slug>.metamanager.wiki/en/latest/
-repo_name: Plex Meta Manager
-repo_url: https://github.com/meisnate12/Plex-Meta-Manager
+site_description: Kometa is an open-source python project allowing you to unlock the potential of your media server.
+site_url: https://<slug>.kometa.wiki/en/latest/
+repo_name: Kometa
+repo_url: https://github.com/Kometa-Team/Kometa
 
 theme:
   name: material
-  logo: assets/icon.png
-  favicon: assets/favicon.png
+  logo: assets/images/icons/icon.png
+  favicon: assets/images/icons/favicon.png
   custom_dir: docs/overrides
+  font:
+    text: DM Sans
+    code: Fira Code
   features:
     - content.code.annotate
     - content.tabs.link
@@ -28,23 +31,8 @@ theme:
     - search.share
   language: en
   palette:
-    # Palette toggle for dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: custom
-      accent: deep purple
-      toggle:
-        icon: material/weather-night
-        name: Switch to light mode
-
-    # Palette toggle for light mode
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: custom
-      accent: deep purple
-      toggle:
-        icon: material/weather-sunny
-        name: Switch to dark mode
+    scheme: slate
+    primary: custom
   icon:
     alternate: material/file-document-multiple-outline
 plugins:
@@ -55,11 +43,17 @@ plugins:
   - include-markdown
   - redirects:
       redirect_maps:
-        'discord.md': 'https://metamanager.wiki/en/nightly/link/'
+        'discord.md': 'https://kometa.wiki/en/nightly/link/'
         'redact.md': 'https://regex101.com/r/DMo1DQ/latest'
-        'link.md': 'https://discord.gg/FNqqw5jRSz'
-        'malauth.md': 'https://replit.com/@chazlarson/MALAuth'
-        'traktauth.md': 'https://replit.com/@chazlarson/TraktAuth'
+        'link.md': 'https://discord.com/invite/kometa-822460010649878528'
+        'malauth.md': 'config/authentication.md'
+        'traktauth.md': 'config/authentication.md'
+        'kometa/install/local.md': 'kometa/install/walkthroughs/local.md'
+        'kometa/install/docker.md': 'kometa/install/walkthroughs/docker.md'
+        'kometa/install/unraid.md': 'kometa/install/walkthroughs/unraid.md'
+        'kometa/install/kubernetes.md': 'kometa/install/walkthroughs/kubernetes.md'
+        'kometa/install/qnap.md': 'kometa/install/walkthroughs/qnap.md'
+        'kometa/install/synology.md': 'kometa/install/walkthroughs/synology.md'
   - material-plausible
 extra:
   alternate:
@@ -79,119 +73,131 @@ extra:
       name: Donate
     - icon: fontawesome/brands/discord
       class: md-social__link
-      link: 'https://metamanager.wiki/en/latest/discord/'
+      link: 'https://kometa.wiki/en/latest/discord/'
       name: Discord
     - icon: fontawesome/brands/github
       class: md-social__link
-      link: 'https://github.com/meisnate12/Plex-Meta-Manager'
+      link: 'https://github.com/Kometa-Team/Kometa'
       name: GitHub
   analytics:
     provider: plausible
-    domain: metamanager.wiki/en/latest
-    src: "https://analytics.metamanager.wiki/js/script.js"
-copyright: Copyright &copy; 2024 meisnate12
+    domain: kometa.wiki/en/latest
+    src: "https://analytics.kometa.wiki/js/script.js"
 markdown_extensions:
-  - pymdownx.tasklist:
-      custom_checkbox: true
+  - abbr
+  - admonition
+  - attr_list
+  - md_in_html
+  - neoteroi.cards
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.details
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true
-  - admonition
-  - attr_list
-  - md_in_html
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
   - pymdownx.tilde
   - tables
   - toc:
       permalink: true
       toc_depth: 3
-  - pymdownx.emoji:
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-  - neoteroi.cards
 extra_css:
-  - stylesheets/cards.css
-  - stylesheets/extra.css
-  - stylesheets/termynal.css
-  - stylesheets/custom.css
-
+  - assets/css/extra.css
+  - https://unpkg.com/tippy.js@6/dist/tippy.css
 extra_javascript:
-  - stylesheets/termynal.js
-  - stylesheets/custom.js
-  - stylesheets/branch.js
+  - assets/js/extra.js
+  - https://unpkg.com/@popperjs/core@2
+  - https://unpkg.com/tippy.js@6
+hooks:
+  - docs/hooks/copyright.py
 
 nav:
-  - PLEX META MANAGER:
-      - Welcome: home.md
+  - KOMETA:
+      - Home: index.md
       - INSTALLATION:
-        - Installing PMM: pmm/install/overview.md
-        - Docker Images: pmm/install/images.md
+        - Installing Kometa: kometa/install/overview.md
+        - Docker Images: kometa/install/images.md
+        - Getting Started: kometa/install/getting_started.md
+        - Configuring Kometa: kometa/install/files.md
         - Walkthroughs:
-          - Local Walkthrough (Win/Mac/Linux): pmm/install/local.md
-          - Docker Walkhrough: pmm/install/docker.md
-          - unRAID Walkthrough: pmm/install/unraid.md
-          - Kubernetes Walkthrough: pmm/install/kubernetes.md
-          - QNAP Walkthrough: pmm/install/qnap.md
-          - Synology Walkthrough: pmm/install/synology.md
+          - Local (Win/Mac/Linux): kometa/install/walkthroughs/local.md
+          - Docker: kometa/install/walkthroughs/docker.md
+          - unRAID: kometa/install/walkthroughs/unraid.md
+          - Kubernetes: kometa/install/walkthroughs/kubernetes.md
+          - QNAP: kometa/install/walkthroughs/qnap.md
+          - Synology: kometa/install/walkthroughs/synology.md
       - POST-INSTALL:
-        - Run Commands & Env Variables: pmm/environmental.md
-        - YAML Files Explained: pmm/yaml.md
-        - Log Files & Common Errors:  pmm/logs.md
-        - Frequently Asked Questions: pmm/faqs.md
+        - Run Commands & Env Variables: kometa/environmental.md
+        - YAML Files Explained: kometa/yaml.md
+        - Log Files & Common Errors: kometa/logs.md
+        - Frequently Asked Questions: kometa/faqs.md
         - Explanation Guides: &guides
-          - Overview: pmm/guides/overview.md
-          - Plex Ratings Explained: pmm/guides/ratings.md
-          - Scheduling PMM Runs Guide: pmm/guides/scheduling.md
-          - Image Asset Directory Guide: pmm/guides/assets.md
-          - Formula 1 Metadata Guide: pmm/guides/formula.md
+          - Overview: kometa/guides/overview.md
+          - Plex Ratings Explained: kometa/guides/ratings.md
+          - Kometa Sorting Guide: kometa/guides/order.md
+          - Scheduling Kometa Runs Guide: kometa/guides/scheduling.md
+          - Image Asset Directory Guide: kometa/guides/assets.md
+          - Formula 1 Metadata Guide: kometa/guides/formula.md
+          - MediUX Assets Guide: kometa/guides/mediux.md
+          - Managing Recommendations: kometa/guides/hub.md
+          - Reverting Kometa Changes: kometa/guides/revert.md
+          - Switching from PMM to Kometa: kometa/guides/rebrand.md
         - Companion Scripts: &scripts
-          - Overview: pmm/scripts/overview.md
-          - Plex Image Cleanup: pmm/scripts/image-cleanup.md
-          - PMM Overlay Reset: pmm/scripts/overlay-reset.md
+          - Overview: kometa/scripts/overview.md
+          - ImageMaid: kometa/scripts/imagemaid.md
+          - Kometa Overlay Reset: kometa/scripts/overlay-reset.md
       - USEFUL LINKS: &links
-        - Feature Requests: https://features.metamanager.wiki/
-        - Bugs & Issues: https://github.com/meisnate12/Plex-Meta-Manager/issues
-        - User Configs Repository: https://github.com/meisnate12/Plex-Meta-Manager-Configs
-        - Discord Server: https://metamanager.wiki/en/latest/discord/
-        - Donate/Sponsor PMM: https://github.com/sponsors/meisnate12
-        - Acknowledgements: pmm/acknowledgements.md
+        - Feature Requests: https://features.kometa.wiki/
+        - Bugs & Issues: https://github.com/Kometa-Team/Kometa/issues
+        - Community Configs: https://github.com/Kometa-Team/Community-Configs
+        - Discord Server: https://kometa.wiki/en/latest/discord/
+        - Donate/Sponsor Kometa: https://github.com/sponsors/meisnate12
+        - Acknowledgements: kometa/acknowledgements.md
   - CONFIGURATION FILE:
       - Overview: config/overview.md
-      - STRUCTURE:
+      - LIBRARIES:
         - Library Attributes: config/libraries.md
         - File Blocks: config/files.md
-        - Scheduling Parts: config/schedule.md
         - Library Operations: config/operations.md
-        - Playlist Files: config/playlists.md
+      - CONNECTIONS:
+        - REQUIRED CONNECTIONS:
+          - Plex: config/plex.md
+          - TMDb: config/tmdb.md
+        - OPTIONAL CONNECTIONS:
+          - Tautulli: config/tautulli.md
+          - Github: config/github.md
+          - OMDb: config/omdb.md
+          - MDBList: config/mdblist.md
+          - Notifiarr: config/notifiarr.md
+          - Gotify: config/gotify.md
+          - ntfy: config/ntfy.md
+          - AniDB: config/anidb.md
+          - Radarr: config/radarr.md
+          - Sonarr: config/sonarr.md
+          - Trakt: config/trakt.md
+          - MyAnimeList: config/myanimelist.md
+          - Trakt and MyAnimeList Authentication: config/authentication.md
+          - Webhooks: config/webhooks.md
+      - OTHER:
         - Settings: config/settings.md
-        - Webhooks: config/webhooks.md
-      - CONNECTORS:
-        - Plex: config/plex.md
-        - TMDb: config/tmdb.md
-        - Trakt: config/trakt.md
-        - Radarr: config/radarr.md
-        - Sonarr: config/sonarr.md
-        - Notifiarr: config/notifiarr.md
-        - Gotify: config/gotify.md
-        - Tautulli: config/tautulli.md
-        - Github: config/github.md
-        - MdbList: config/mdblist.md
-        - OMDb: config/omdb.md
-        - AniDB: config/anidb.md
-        - MyAnimeList: config/myanimelist.md
-        - Trakt and MyAnimeList Authentication: config/auth.md
-  - PMM DEFAULTS:
+        - Scheduling Parts: config/schedule.md
+        - Playlist Files: config/playlists.md
+  - KOMETA DEFAULTS:
       - Defaults Usage Guide: defaults/guide.md
       - Defaults Files: defaults/files.md
       - COLLECTIONS DEFAULTS:
         - Collections: defaults/collections.md
-        - Shared Variables: defaults/collection_variables.md
         - Separators: defaults/separators.md
         - Award:
           - Separator: defaults/award/separator.md
@@ -207,6 +213,7 @@ nav:
           - National Film Registry: defaults/award/nfr.md
           - People's Choice Awards: defaults/award/pca.md
           - Razzie Awards: defaults/award/razzie.md
+          - Screen Actors Guild Awards: defaults/award/sag.md
           - Sundance Film Festival Awards: defaults/award/sundance.md
           - Toronto International Film Festival: defaults/award/tiff.md
           - Venice Film Festival Awards: defaults/award/venice.md
@@ -214,8 +221,8 @@ nav:
           - Separator: defaults/chart/separator.md
           - Basic Charts: defaults/chart/basic.md
           - AniList Charts: defaults/chart/anilist.md
-          - Flixpatrol Charts: defaults/chart/flixpatrol.md
           - IMDb Charts: defaults/chart/imdb.md
+          - Letterboxd Charts: defaults/chart/letterboxd.md
           - MyAnimeList Charts: defaults/chart/myanimelist.md
           - Tautulli Charts: defaults/chart/tautulli.md
           - TMDb Charts: defaults/chart/tmdb.md
@@ -233,6 +240,8 @@ nav:
           - US Content Ratings (Show): defaults/show/content_rating_us.md
           - UK Content Ratings: defaults/both/content_rating_uk.md
           - DE Content Ratings: defaults/both/content_rating_de.md
+          - AU Content Ratings: defaults/both/content_rating_au.md
+          - NZ Content Ratings: defaults/both/content_rating_nz.md
           - MyAnimeList Content Ratings: defaults/both/content_rating_mal.md
           - Common Sense Media Content Ratings: defaults/both/content_rating_cs.md
         - Location:
@@ -247,27 +256,23 @@ nav:
           - Resolutions: defaults/both/resolution.md
           - Audio Languages: defaults/both/audio_language.md
           - Subtitle Languages: defaults/both/subtitle_language.md
-        - Production:
-          - Networks: defaults/show/network.md
-          - Streaming: defaults/both/streaming.md
-          - Studios: defaults/both/studio.md
         - People:
           - Actors: defaults/both/actor.md
           - Directors: defaults/movie/director.md
           - Producers: defaults/movie/producer.md
           - Writers: defaults/movie/writer.md
+        - Production:
+          - Networks: defaults/show/network.md
+          - Streaming: defaults/both/streaming.md
+          - Studios: defaults/both/studio.md
         - Time:
           - Seasonal: defaults/movie/seasonal.md
           - Years: defaults/both/year.md
           - Decades (Movie): defaults/movie/decade.md
           - Decades (Show): defaults/show/decade.md
-      - PLAYLIST DEFAULTS:
-        - Playlists: defaults/playlist.md
       - OVERLAY DEFAULTS:
         - Overlays: defaults/overlays.md
-        - Shared Variables: defaults/overlay_variables.md
         - Chart:
-          - FlixPatrol Top: defaults/overlays/flixpatrol.md
           - Ribbon: defaults/overlays/ribbon.md
         - Content:
           - Episode Info: defaults/overlays/episode_info.md
@@ -279,6 +284,8 @@ nav:
           - US Content Ratings (Show): defaults/overlays/content_rating_us_show.md
           - UK Content Ratings: defaults/overlays/content_rating_uk.md
           - DE Content Ratings: defaults/overlays/content_rating_de.md
+          - AU Content Ratings: defaults/overlays/content_rating_au.md
+          - NZ Content Ratings: defaults/overlays/content_rating_nz.md
           - Common Sense Age Ratings: defaults/overlays/commonsense.md
         - Media:
           - Aspect Ratio: defaults/overlays/aspect.md
@@ -295,6 +302,8 @@ nav:
           - Studios: defaults/overlays/studio.md
         - Utility:
           - Direct Play Only: defaults/overlays/direct_play.md
+      - PLAYLIST DEFAULTS:
+        - Playlists: defaults/playlist.md
   - FILES & BUILDERS:
       - Overview: files/overview.md
       - FILES:
@@ -308,8 +317,7 @@ nav:
       - DEFINITION ATTRIBUTES:
         - Builders:
           - Overview: files/builders/overview.md
-          - Dumb Plex Builders: files/builders/plex.md
-          - Smart Plex Builders: files/builders/smart.md
+          - Plex Builders: files/builders/plex.md
           - TMDb Builders: files/builders/tmdb.md
           - TVDb Builders: files/builders/tvdb.md
           - IMDb Builders: files/builders/imdb.md
@@ -317,10 +325,9 @@ nav:
           - Tautulli Builders: files/builders/tautulli.md
           - Radarr Builders: files/builders/radarr.md
           - Sonarr Builders: files/builders/sonarr.md
-          - MdbList Builders: files/builders/mdblist.md
+          - MDBList Builders: files/builders/mdblist.md
           - Letterboxd Builders: files/builders/letterboxd.md
           - ICheckMovies Builders: files/builders/icheckmovies.md
-          - FlixPatrol Builders: files/builders/flixpatrol.md
           - BoxOfficeMojo Builders: files/builders/mojo.md
           - Reciperr Builders: files/builders/reciperr.md
           - StevenLu Builders: files/builders/stevenlu.md

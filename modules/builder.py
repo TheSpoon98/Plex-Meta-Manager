@@ -2,21 +2,21 @@ import os, re, time
 from arrapi import ArrException
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
-from modules import anidb, anilist, flixpatrol, icheckmovies, imdb, letterboxd, mal, mojo, plex, radarr, reciperr, sonarr, tautulli, tmdb, trakt, tvdb, mdblist, util
+from modules import anidb, anilist, icheckmovies, imdb, letterboxd, mal, mojo, plex, radarr, reciperr, sonarr, tautulli, tmdb, trakt, tvdb, mdblist, util
 from modules.util import Failed, FilterFailed, NonExisting, NotScheduled, NotScheduledRange, Deleted
 from modules.overlay import Overlay
-from modules.poster import PMMImage
+from modules.poster import KometaImage
+from modules.request import quote
 from plexapi.audio import Artist, Album, Track
 from plexapi.exceptions import NotFound
 from plexapi.video import Movie, Show, Season, Episode
-from requests.exceptions import ConnectionError
-from urllib.parse import quote
+from tmdbapis.tmdb import discover_movie_sort_options, discover_tv_sort_options
 
 logger = util.logger
 
 advance_new_agent = ["item_metadata_language", "item_use_original_title"]
 advance_show = ["item_episode_sorting", "item_keep_episodes", "item_delete_episodes", "item_season_display", "item_episode_sorting"]
-all_builders = anidb.builders + anilist.builders + flixpatrol.builders + icheckmovies.builders + imdb.builders + \
+all_builders = anidb.builders + anilist.builders + icheckmovies.builders + imdb.builders + \
                letterboxd.builders + mal.builders + mojo.builders + plex.builders + reciperr.builders + tautulli.builders + \
                tmdb.builders + trakt.builders + tvdb.builders + mdblist.builders + radarr.builders + sonarr.builders
 show_only_builders = [
@@ -37,17 +37,17 @@ summary_details = [
 poster_details = ["url_poster", "tmdb_poster", "tmdb_profile", "tvdb_poster", "file_poster"]
 background_details = ["url_background", "tmdb_background", "tvdb_background", "file_background"]
 boolean_details = [
-    "show_filtered", "show_missing", "save_report", "missing_only_released", "only_filter_missing",
+    "show_filtered", "show_unfiltered", "show_missing", "save_report", "missing_only_released", "only_filter_missing",
     "delete_below_minimum", "asset_folders", "create_asset_folders"
 ]
 scheduled_boolean = ["visible_library", "visible_home", "visible_shared"]
 string_details = ["sort_title", "content_rating", "name_mapping"]
 ignored_details = [
     "smart_filter", "smart_label", "smart_url", "run_again", "schedule", "sync_mode", "template", "variables", "test", "suppress_overlays",
-    "delete_not_scheduled", "tmdb_person", "build_collection", "collection_order", "builder_level", "overlay", "pmm_poster",
+    "delete_not_scheduled", "tmdb_person", "build_collection", "collection_order", "builder_level", "overlay", "kometa_poster",
     "validate_builders", "libraries", "sync_to_users", "exclude_users", "collection_name", "playlist_name", "name", "limit",
     "blank_collection", "allowed_library_types", "run_definition", "delete_playlist", "ignore_blank_results", "only_run_on_create",
-    "delete_collections_named", "tmdb_person_offset", "append_label", "key_name", "translation_key", "translation_prefix", "tmdb_birthday"
+    "delete_collections_named", "tmdb_person_offset", "append_label", "key_name", "translation_key", "translation_prefix", "tmdb_birthday", "tmdb_deathday"
 ]
 details = [
     "ignore_ids", "ignore_imdb_ids", "server_preroll", "changes_webhooks", "collection_filtering", "collection_mode", "url_theme",
@@ -56,10 +56,10 @@ details = [
 collectionless_details = ["collection_order", "plex_collectionless", "label", "label_sync_mode", "test", "item_label"] + \
                          poster_details + background_details + summary_details + string_details + all_builders
 item_false_details = ["item_lock_background", "item_lock_poster", "item_lock_title"]
-item_bool_details = ["item_tmdb_season_titles", "revert_overlay", "item_assets", "item_refresh"] + item_false_details
+item_bool_details = ["item_tmdb_season_titles", "revert_overlay", "item_assets", "item_refresh", "item_analyze"] + item_false_details
 item_details = ["non_item_remove_label", "item_label", "item_genre", "item_edition", "item_radarr_tag", "item_sonarr_tag", "item_refresh_delay"] + item_bool_details + list(plex.item_advance_keys.keys())
 none_details = ["label.sync", "item_label.sync", "item_genre.sync", "radarr_taglist", "sonarr_taglist", "item_edition"]
-none_builders = ["radarr_tag_list", "sonarr_taglist"]
+none_builders = ["radarr_taglist", "sonarr_taglist"]
 radarr_details = [
     "radarr_add_missing", "radarr_add_existing", "radarr_upgrade_existing", "radarr_monitor_existing", "radarr_folder", "radarr_monitor",
     "radarr_search", "radarr_availability", "radarr_quality", "radarr_tag", "item_radarr_tag", "radarr_ignore_cache",
@@ -89,7 +89,7 @@ filters_by_type = {
     "show_season": ["episodes"],
     "artist_album": ["tracks"],
     "movie": ["edition", "has_edition", "stinger_rating", "has_stinger"],
-    "show": ["seasons", "tmdb_status", "tmdb_type", "origin_country", "network", "first_episode_aired", "last_episode_aired", "last_episode_aired_or_never"],
+    "show": ["seasons", "tmdb_status", "tmdb_type", "origin_country", "network", "first_episode_aired", "last_episode_aired", "last_episode_aired_or_never", "tvdb_title", "tvdb_status", "tvdb_genre"],
     "artist": ["albums"],
     "album": ["record_label"]
 }
@@ -106,15 +106,16 @@ tmdb_filters = [
     "original_language", "origin_country", "tmdb_vote_count", "tmdb_vote_average", "tmdb_year", "tmdb_keyword", "tmdb_genre",
     "first_episode_aired", "last_episode_aired", "last_episode_aired_or_never", "tmdb_status", "tmdb_type", "tmdb_title"
 ]
+tvdb_filters = ["tvdb_title", "tvdb_status", "tvdb_genre"]
 imdb_filters = ["imdb_keyword"]
 string_filters = [
     "title", "summary", "studio", "edition", "record_label", "folder", "filepath", "audio_track_title", "subtitle_track_title", "tmdb_title",
-    "audio_codec", "audio_profile", "video_codec", "video_profile"
+    "audio_codec", "audio_profile", "video_codec", "video_profile", "tvdb_title", "tvdb_status"
 ]
 string_modifiers = ["", ".not", ".is", ".isnot", ".begins", ".ends", ".regex"]
 tag_filters = [
     "actor", "collection", "content_rating", "country", "director", "network", "genre", "label", "producer", "year",
-    "origin_country", "writer", "resolution", "audio_language", "subtitle_language", "tmdb_keyword", "tmdb_genre", "imdb_keyword"
+    "origin_country", "writer", "resolution", "audio_language", "subtitle_language", "tmdb_keyword", "tmdb_genre", "imdb_keyword", "tvdb_genre"
 ]
 tag_modifiers = ["", ".not", ".regex", ".count_gt", ".count_gte", ".count_lt", ".count_lte"]
 boolean_filters = ["has_collection", "has_edition", "has_overlay", "has_dolby_vision", "has_stinger"]
@@ -142,7 +143,7 @@ float_attributes = plex.float_attributes + ["aspect", "tmdb_vote_average"]
 boolean_attributes = plex.boolean_attributes + boolean_filters
 smart_invalid = ["collection_order", "builder_level"]
 smart_only = ["collection_filtering"]
-smart_url_invalid = ["filters", "run_again", "sync_mode", "show_filtered", "show_missing", "save_report", "smart_label"] + radarr_details + sonarr_details
+smart_url_invalid = ["filters", "run_again", "sync_mode", "show_filtered", "show_unfiltered", "show_missing", "save_report", "smart_label"] + radarr_details + sonarr_details
 custom_sort_builders = [
     "plex_search", "plex_watchlist", "plex_pilots", "tmdb_list", "tmdb_popular", "tmdb_now_playing", "tmdb_top_rated",
     "tmdb_trending_daily", "tmdb_trending_weekly", "tmdb_discover", "reciperr_list", "trakt_chart", "trakt_userlist",
@@ -153,7 +154,7 @@ custom_sort_builders = [
     "trakt_recommended_personal", "trakt_recommended_daily", "trakt_recommended_weekly", "trakt_recommended_monthly",
     "trakt_recommended_yearly", "trakt_recommended_all", "trakt_watched_daily", "trakt_watched_weekly",
     "trakt_watched_monthly", "trakt_watched_yearly", "trakt_watched_all",
-    "tautulli_popular", "tautulli_watched", "mdblist_list", "letterboxd_list", "icheckmovies_list", "flixpatrol_top",
+    "tautulli_popular", "tautulli_watched", "mdblist_list", "letterboxd_list", "icheckmovies_list",
     "anilist_top_rated", "anilist_popular", "anilist_trending", "anilist_search", "anilist_userlist",
     "mal_all", "mal_airing", "mal_upcoming", "mal_tv", "mal_movie", "mal_ova", "mal_special", "mal_search",
     "mal_popular", "mal_favorite", "mal_suggested", "mal_userlist", "mal_season", "mal_genre", "mal_studio",
@@ -168,10 +169,10 @@ parts_collection_valid = [
      "filters", "plex_all", "plex_search", "trakt_list", "trakt_list_details", "collection_filtering", "collection_mode", "label", "visible_library", "limit",
      "visible_home", "visible_shared", "show_missing", "save_report", "missing_only_released", "server_preroll", "changes_webhooks",
      "item_lock_background", "item_lock_poster", "item_lock_title", "item_refresh", "item_refresh_delay", "imdb_list", "imdb_search",
-     "cache_builders", "url_theme", "file_theme", "item_label", "default_percent", "non_item_remove_label"
+     "cache_builders", "url_theme", "file_theme", "item_label", "default_percent", "non_item_remove_label", "item_analyze", "sync_to_trakt_list"
 ] + episode_parts_only + summary_details + poster_details + background_details + string_details
 playlist_attributes = [
-    "filters", "name_mapping", "show_filtered", "show_missing", "save_report", "allowed_library_types", "run_definition",
+    "filters", "name_mapping", "show_filtered", "show_unfiltered", "show_missing", "save_report", "allowed_library_types", "run_definition",
     "missing_only_released", "only_filter_missing", "delete_below_minimum", "ignore_ids", "ignore_imdb_ids",
     "server_preroll", "changes_webhooks", "minimum_items", "cache_builders", "default_percent"
 ] + custom_sort_builders + summary_details + poster_details + radarr_details + sonarr_details
@@ -189,6 +190,7 @@ class CollectionBuilder:
         self.library = library
         self.libraries = []
         self.summaries = {}
+        self.is_playlist = False
         self.playlist = library is None
         self.overlay = overlay
         methods = {m.lower(): m for m in self.data}
@@ -369,7 +371,7 @@ class CollectionBuilder:
                 trans_summary = apply_vars(trans_summary, trans_vars, trans_key, self.limit)
 
             delete_cols = []
-            if (self.name and self.name != en_name) or (not self.name and en_name != trans_name):
+            if (self.name and self.name != en_name) or (not self.name and trans_name and en_name != trans_name):
                 delete_cols.append(en_name)
             if self.name and self.name != trans_name and en_name != trans_name:
                 delete_cols.append(trans_name)
@@ -389,7 +391,7 @@ class CollectionBuilder:
 
             if not self.name:
                 self.name = trans_name if trans_name else en_name
-            logger.info(self.name)
+            logger.info(f"Final Name: {self.name}")
             if en_summary or trans_summary:
                 self.summaries["translation"] = trans_summary if trans_summary else en_summary
 
@@ -478,14 +480,14 @@ class CollectionBuilder:
 
         self.posters = {}
         self.backgrounds = {}
-        if not self.overlay and "pmm_poster" in methods:
+        if not self.overlay and "kometa_poster" in methods:
             logger.debug("")
-            logger.debug("Validating Method: pmm_poster")
-            if self.data[methods["pmm_poster"]] is None:
-                logger.error(f"{self.Type} Error: pmm_poster attribute is blank")
-            logger.debug(f"Value: {data[methods['pmm_poster']]}")
+            logger.debug("Validating Method: kometa_poster")
+            if self.data[methods["kometa_poster"]] is None:
+                logger.error(f"{self.Type} Error: kometa_poster attribute is blank")
+            logger.debug(f"Value: {data[methods['kometa_poster']]}")
             try:
-                self.posters["pmm_poster"] = PMMImage(self.config, self.data[methods["pmm_poster"]], "pmm_poster", playlist=self.playlist)
+                self.posters["kometa_poster"] = KometaImage(self.config, self.data[methods["kometa_poster"]], "kometa_poster", playlist=self.playlist)
             except Failed as e:
                 logger.error(e)
 
@@ -518,7 +520,7 @@ class CollectionBuilder:
                 self.sync_to_users = self.data[methods[s_attr]]
             else:
                 self.sync_to_users = config.general["playlist_sync_to_users"]
-                logger.warning(f"Playlist Warning: sync_to_users attribute not found defaulting to playlist_sync_to_users: {self.sync_to_users}")
+                logger.info(f"Playlist Warning: sync_to_users attribute not found defaulting to playlist_sync_to_users: {self.sync_to_users}")
 
             if "exclude_users" in methods or "exclude_user" in methods:
                 s_attr = f"exclude_user{'s' if 'exclude_users' in methods else ''}"
@@ -528,9 +530,9 @@ class CollectionBuilder:
                 self.exclude_users = self.data[methods[s_attr]]
             elif config.general["playlist_exclude_users"]:
                 self.exclude_users = config.general["playlist_exclude_users"]
-                logger.warning(f"Playlist Warning: exclude_users attribute not found defaulting to playlist_exclude_users: {self.exclude_users}")
+                logger.info(f"Playlist Warning: exclude_users attribute not found defaulting to playlist_exclude_users: {self.exclude_users}")
 
-            plex_users = self.library.users
+            plex_users = self.library.users + [self.library.account.username]
 
             self.exclude_users = util.get_list(self.exclude_users) if self.exclude_users else []
             for user in self.exclude_users:
@@ -553,10 +555,12 @@ class CollectionBuilder:
                 logger.debug("Validating Method: delete_playlist")
                 logger.debug(f"Value: {data[methods['delete_playlist']]}")
                 if util.parse(self.Type, "delete_playlist", self.data, datatype="bool", methods=methods, default=False):
-                    try:
-                        self.obj = self.library.get_playlist(self.name)
-                    except Failed as e:
-                        logger.error(e)
+                    for getter in [self.library.get_playlist, self.library.get_playlist_from_users]:
+                        try:
+                            self.obj = getter(self.name)
+                            break
+                        except Failed as e:
+                            logger.error(e)
                     raise Deleted(self.delete())
         else:
             self.libraries.append(self.library)
@@ -566,6 +570,7 @@ class CollectionBuilder:
         self.language = self.library.Plex.language
         self.details = {
             "show_filtered": self.library.show_filtered,
+            "show_unfiltered": self.library.show_unfiltered,
             "show_options": self.library.show_options,
             "show_missing": self.library.show_missing,
             "save_report": self.library.save_report,
@@ -782,8 +787,25 @@ class CollectionBuilder:
                 "this_month": util.parse(self.Type, "this_month", parsed_birthday, datatype="bool", methods=parsed_methods, default=False)
             }
 
+        self.tmdb_deathday = None
+        if "tmdb_deathday" in methods:
+            logger.debug("")
+            logger.debug("Validating Method: tmdb_deathday")
+            logger.debug(f"Value: {data[methods['tmdb_deathday']]}")
+            if not self.data[methods["tmdb_deathday"]]:
+                raise Failed(f"{self.Type} Error: tmdb_deathday attribute is blank")
+            parsed_deathday = util.parse(self.Type, "tmdb_deathday", self.data, datatype="dict", methods=methods)
+            parsed_methods = {m.lower(): m for m in parsed_deathday}
+            self.tmdb_deathday = {
+                "before": util.parse(self.Type, "before", parsed_deathday, datatype="int", methods=parsed_methods, minimum=0, default=0),
+                "after": util.parse(self.Type, "after", parsed_deathday, datatype="int", methods=parsed_methods, minimum=0, default=0),
+                "this_month": util.parse(self.Type, "this_month", parsed_deathday, datatype="bool", methods=parsed_methods, default=False)
+            }
+
+
         first_person = None
         self.tmdb_person_birthday = None
+        self.tmdb_person_deathday = None
         if "tmdb_person" in methods:
             logger.debug("")
             logger.debug("Validating Method: tmdb_person")
@@ -796,7 +818,15 @@ class CollectionBuilder:
                     try:
                         if not first_person:
                             first_person = tmdb_person
-                        person = self.config.TMDb.get_person(util.regex_first_int(tmdb_person, "TMDb Person ID"))
+                        # Added logic to allow names like "50 Cent" to be passed as a string rather than it passing "50" as the ID to use.
+                        if tmdb_person.isdigit():
+                            person = self.config.TMDb.get_person(int(tmdb_person))
+                        else:
+                            results = self.config.TMDb.search_people(tmdb_person)
+                            if not results:
+                                raise Failed(f"TMDb Error: No results for '{tmdb_person}'")
+                            result_index = len(results) - 1 if self.tmdb_person_offset >= len(results) else self.tmdb_person_offset
+                            person = results[result_index]
                         valid_names.append(person.name)
                         if person.biography:
                             self.summaries["tmdb_person"] = person.biography
@@ -804,6 +834,8 @@ class CollectionBuilder:
                             self.posters["tmdb_person"] = person.profile_url
                         if person.birthday and not self.tmdb_person_birthday:
                             self.tmdb_person_birthday = person.birthday
+                        if person.deathday and not self.tmdb_person_deathday:
+                            self.tmdb_person_deathday = person.deathday
                     except Failed as e:
                         if str(e).startswith("TMDb Error"):
                             logger.error(e)
@@ -819,6 +851,8 @@ class CollectionBuilder:
                                         self.posters["tmdb_person"] = results[result_index].profile_url
                                     if results[result_index].birthday and not self.tmdb_person_birthday:
                                         self.tmdb_person_birthday = results[result_index].birthday
+                                    if results[result_index].deathday and not self.tmdb_person_deathday:
+                                        self.tmdb_person_deathday = results[result_index].deathday
                             except Failed as ee:
                                 logger.error(ee)
                 if len(valid_names) > 0:
@@ -826,49 +860,52 @@ class CollectionBuilder:
                 else:
                     raise Failed(f"{self.Type} Error: No valid TMDb Person IDs in {self.data[methods['tmdb_person']]}")
 
-        if self.tmdb_birthday:
-            if "tmdb_person" not in methods:
-                raise NotScheduled("Skipped because tmdb_person is required when using tmdb_birthday")
-            if not self.tmdb_person_birthday:
-                raise NotScheduled(f"Skipped because No Birthday was found for {first_person}")
-            now = datetime(self.current_time.year, self.current_time.month, self.current_time.day)
+        for attr in ["tmdb_birthday", "tmdb_deathday"]:
+            tmdb_day = getattr(self, attr)
+            tmdb_person_day = getattr(self, attr.replace("_", "_person_"))
+            if tmdb_day:
+                if "tmdb_person" not in methods:
+                    raise NotScheduled(f"Skipped because tmdb_person is required when using {attr}")
+                if not tmdb_person_day:
+                    raise NotScheduled(f"Skipped because No {attr[5:]} was found for {first_person}")
+                now = datetime(self.current_time.year, self.current_time.month, self.current_time.day)
 
-            try:
-                delta = datetime(now.year, self.tmdb_person_birthday.month, self.tmdb_person_birthday.day)
-            except ValueError:
-                delta = datetime(now.year, self.tmdb_person_birthday.month, 28)
+                try:
+                    delta = datetime(now.year, tmdb_person_day.month, tmdb_person_day.day)
+                except ValueError:
+                    delta = datetime(now.year, tmdb_person_day.month, 28)
 
-            before_delta = delta
-            after_delta = delta
-            if delta < now:
-                try:
-                    before_delta = datetime(now.year + 1, self.tmdb_person_birthday.month, self.tmdb_person_birthday.day)
-                except ValueError:
-                    before_delta = datetime(now.year + 1, self.tmdb_person_birthday.month, 28)
-            elif delta > now:
-                try:
-                    after_delta = datetime(now.year - 1, self.tmdb_person_birthday.month, self.tmdb_person_birthday.day)
-                except ValueError:
-                    after_delta = datetime(now.year - 1, self.tmdb_person_birthday.month, 28)
-            days_after = (now - after_delta).days
-            days_before = (before_delta - now).days
-            msg = ""
-            if self.tmdb_birthday["this_month"]:
-                if now.month != self.tmdb_person_birthday.month:
-                    msg = f"Skipped because Birthday Month: {self.tmdb_person_birthday.month} is not {now.month}"
-            elif days_before > self.tmdb_birthday["before"] and days_after > self.tmdb_birthday["after"]:
-                msg = f"Skipped because days until {self.tmdb_person_birthday.month}/{self.tmdb_person_birthday.day}: {days_before} > {self.tmdb_birthday['before']} and days after {self.tmdb_person_birthday.month}/{self.tmdb_person_birthday.day}: {days_after} > {self.tmdb_birthday['after']}"
-            if msg:
-                suffix = ""
-                if self.details["delete_not_scheduled"]:
+                before_delta = delta
+                after_delta = delta
+                if delta < now:
                     try:
-                        self.obj = self.library.get_playlist(self.name) if self.playlist else self.library.get_collection(self.name, force_search=True)
-                        logger.info(self.delete())
-                        self.deleted = True
-                        suffix = f" and was deleted"
-                    except Failed:
-                        suffix = f" and could not be found to delete"
-                raise NotScheduled(f"{msg}{suffix}")
+                        before_delta = datetime(now.year + 1, tmdb_person_day.month, tmdb_person_day.day)
+                    except ValueError:
+                        before_delta = datetime(now.year + 1, tmdb_person_day.month, 28)
+                elif delta > now:
+                    try:
+                        after_delta = datetime(now.year - 1, tmdb_person_day.month, tmdb_person_day.day)
+                    except ValueError:
+                        after_delta = datetime(now.year - 1, tmdb_person_day.month, 28)
+                days_after = (now - after_delta).days
+                days_before = (before_delta - now).days
+                msg = ""
+                if tmdb_day["this_month"]:
+                    if now.month != tmdb_person_day.month:
+                        msg = f"Skipped because {attr[5:]} Month: {tmdb_person_day.month} is not {now.month}"
+                elif days_before > tmdb_day["before"] and days_after > tmdb_day["after"]:
+                    msg = f"Skipped because days until {tmdb_person_day.month}/{tmdb_person_day.day}: {days_before} > {tmdb_day['before']} and days after {tmdb_person_day.month}/{tmdb_person_day.day}: {days_after} > {tmdb_day['after']}"
+                if msg:
+                    suffix = ""
+                    if self.details["delete_not_scheduled"]:
+                        try:
+                            self.obj = self.library.get_playlist(self.name) if self.playlist else self.library.get_collection(self.name, force_search=True)
+                            logger.info(self.delete())
+                            self.deleted = True
+                            suffix = f" and was deleted"
+                        except Failed:
+                            suffix = f" and could not be found to delete"
+                    raise NotScheduled(f"{msg}{suffix}")
 
         self.smart_url = None
         self.smart_type_key = None
@@ -952,7 +989,7 @@ class CollectionBuilder:
                         raise Failed(f"{self.Type} Error: collection_order: {ts} is invalid. Options: {', '.join(sorts)}")
                     self.custom_sort.append(ts)
             if test_sort not in plex.collection_order_options + ["custom.asc", "custom.desc"] and not self.custom_sort:
-                raise Failed(f"{self.Type} Error: {test_sort} collection_order invalid\n\trelease (Order Collection by release dates)\n\talpha (Order Collection Alphabetically)\n\tcustom.asc/custom.desc (Custom Order Collection)\n\tOther sorting options can be found at https://github.com/meisnate12/Plex-Meta-Manager/wiki/Smart-Builders#sort-options")
+                raise Failed(f"{self.Type} Error: {test_sort} collection_order invalid\n\trelease (Order Collection by release dates)\n\talpha (Order Collection Alphabetically)\n\tcustom.asc/custom.desc (Custom Order Collection)\n\tOther sorting options can be found at https://github.com/Kometa-Team/Kometa/wiki/Smart-Builders#sort-options")
 
         if self.smart:
             self.custom_sort = None
@@ -1031,8 +1068,6 @@ class CollectionBuilder:
                     self._anidb(method_name, method_data)
                 elif method_name in anilist.builders:
                     self._anilist(method_name, method_data)
-                elif method_name in flixpatrol.builders:
-                    self._flixpatrol(method_name, method_data)
                 elif method_name in icheckmovies.builders:
                     self._icheckmovies(method_name, method_data)
                 elif method_name in letterboxd.builders:
@@ -1178,11 +1213,10 @@ class CollectionBuilder:
     def _poster(self, method_name, method_data):
         if method_name == "url_poster":
             try:
-                image_response = self.config.get(method_data, headers=util.header())
-                if image_response.status_code >= 400 or image_response.headers["Content-Type"] not in util.image_content_types:
-                    raise ConnectionError
+                if not method_data.startswith("https://theposterdb.com/api/assets/"):
+                    self.config.Requests.get_image(method_data)
                 self.posters[method_name] = method_data
-            except ConnectionError:
+            except Failed:
                 logger.warning(f"{self.Type} Warning: No Poster Found at {method_data}")
         elif method_name == "tmdb_list_poster":
             self.posters[method_name] = self.config.TMDb.get_list(util.regex_first_int(method_data, "TMDb List ID")).poster_url
@@ -1205,11 +1239,9 @@ class CollectionBuilder:
     def _background(self, method_name, method_data):
         if method_name == "url_background":
             try:
-                image_response = self.config.get(method_data, headers=util.header())
-                if image_response.status_code >= 400 or image_response.headers["Content-Type"] not in util.image_content_types:
-                    raise ConnectionError
+                self.config.Requests.get_image(method_data)
                 self.backgrounds[method_name] = method_data
-            except ConnectionError:
+            except Failed:
                 logger.warning(f"{self.Type} Warning: No Background Found at {method_data}")
         elif method_name == "tmdb_background":
             self.backgrounds[method_name] = self.config.TMDb.get_movie_show_or_collection(util.regex_first_int(method_data, 'TMDb ID'), self.library.is_movie).backdrop_url
@@ -1248,7 +1280,10 @@ class CollectionBuilder:
         elif method_name == "default_percent":
             self.default_percent = util.parse(self.Type, method_name, method_data, datatype="int", minimum=1, maximum=100)
         elif method_name == "server_preroll":
-            self.server_preroll = util.parse(self.Type, method_name, method_data)
+            if isinstance(method_data, list):
+                self.server_preroll = ";".join([(",".join([str(v) for v in md if v]) if isinstance(md, list) else str(md)) for md in method_data if md])
+            else:
+                self.server_preroll = util.parse(self.Type, method_name, method_data)
         elif method_name == "ignore_ids":
             self.ignore_ids.extend(util.parse(self.Type, method_name, method_data, datatype="intlist"))
         elif method_name == "ignore_imdb_ids":
@@ -1346,7 +1381,7 @@ class CollectionBuilder:
         elif method_name == "radarr_tag":
             self.radarr_details["tag"] = util.get_list(method_data, lower=True)
         elif method_name == "radarr_taglist":
-            self.builders.append((method_name, util.get_list(method_data, lower=True)))
+            self.builders.append((method_name, util.get_list(method_data, lower=True, return_none=False)))
         elif method_name == "radarr_all":
             self.builders.append((method_name, True))
 
@@ -1368,7 +1403,7 @@ class CollectionBuilder:
         elif method_name == "sonarr_tag":
             self.sonarr_details["tag"] = util.get_list(method_data, lower=True)
         elif method_name == "sonarr_taglist":
-            self.builders.append((method_name, util.get_list(method_data, lower=True)))
+            self.builders.append((method_name, util.get_list(method_data, lower=True, return_none=False)))
         elif method_name == "sonarr_all":
             self.builders.append((method_name, True))
 
@@ -1408,8 +1443,8 @@ class CollectionBuilder:
                 score_dict = {}
                 for search_method, search_data in dict_data.items():
                     search_attr, modifier = os.path.splitext(str(search_method).lower())
-                    if search_attr == "score" and modifier in ["gt", "gte", "lt", "lte"]:
-                        score = util.parse(self.Type, search_method, dict_data, datatype="int", default=-1, minimum=0, maximum=10, parent=method_name)
+                    if search_attr == "score" and modifier in [".gt", ".gte", ".lt", ".lte"]:
+                        score = util.parse(self.Type, search_method, dict_data, methods=dict_methods, datatype="int", default=-1, minimum=0, maximum=10, parent=method_name)
                         if score > -1:
                             score_dict[modifier] = score
                     elif search_attr not in ["username", "list_name", "sort_by"]:
@@ -1465,23 +1500,13 @@ class CollectionBuilder:
                 new_dictionary["limit"] = util.parse(self.Type, "limit", dict_data, datatype="int", methods=dict_methods, default=0, parent=method_name)
                 self.builders.append((method_name, new_dictionary))
 
-    def _flixpatrol(self, method_name, method_data):
-        for dict_data in util.parse(self.Type, method_name, method_data, datatype="listdict"):
-            dict_methods = {dm.lower(): dm for dm in dict_data}
-            self.builders.append((method_name, {
-                "platform": util.parse(self.Type, "platform", dict_data, methods=dict_methods, parent=method_name, options=self.config.FlixPatrol.platforms),
-                "location": util.parse(self.Type, "location", dict_data, methods=dict_methods, parent=method_name, default="world", options=self.config.FlixPatrol.locations),
-                "in_the_last": util.parse(self.Type, "in_the_last", dict_data, datatype="int", methods=dict_methods, parent=method_name, default=1, maximum=30),
-                "limit": util.parse(self.Type, "limit", dict_data, datatype="int", methods=dict_methods, parent=method_name, default=10, maximum=10)
-            }))
-
     def _icheckmovies(self, method_name, method_data):
         if method_name.startswith("icheckmovies_list"):
-            icheckmovies_lists = self.config.ICheckMovies.validate_icheckmovies_lists(method_data, self.language)
+            icheckmovies_lists = self.config.ICheckMovies.validate_icheckmovies_lists(method_data)
             for icheckmovies_list in icheckmovies_lists:
                 self.builders.append(("icheckmovies_list", icheckmovies_list))
             if method_name.endswith("_details"):
-                self.summaries[method_name] = self.config.ICheckMovies.get_list_description(icheckmovies_lists[0], self.language)
+                self.summaries[method_name] = self.config.ICheckMovies.get_list_description(icheckmovies_lists[0])
 
     def _imdb(self, method_name, method_data):
         if method_name == "imdb_id":
@@ -1490,25 +1515,15 @@ class CollectionBuilder:
                     self.builders.append((method_name, value))
                 else:
                     raise Failed(f"{self.Type} Error: imdb_id {value} must begin with tt")
-        elif method_name == "imdb_list":
-            try:
-                for imdb_dict in self.config.IMDb.validate_imdb_lists(self.Type, method_data, self.language):
-                    self.builders.append((method_name, imdb_dict))
-            except Failed as e:
-                logger.error(e)
+        elif method_name in ["imdb_list", "imdb_watchlist"]:
+            for imdb_dict in self.config.IMDb.validate_imdb(self.Type, method_name, method_data):
+                self.builders.append((method_name, imdb_dict))
         elif method_name == "imdb_chart":
             for value in util.get_list(method_data):
-                if value in imdb.movie_charts and not self.library.is_movie:
-                    raise Failed(f"{self.Type} Error: chart: {value} does not work with show libraries")
-                elif value in imdb.show_charts and self.library.is_movie:
-                    raise Failed(f"{self.Type} Error: chart: {value} does not work with movie libraries")
-                elif value in imdb.movie_charts or value in imdb.show_charts:
-                    self.builders.append((method_name, value))
-                else:
-                    raise Failed(f"{self.Type} Error: chart: {value} is invalid options are {[i for i in imdb.charts]}")
-        elif method_name == "imdb_watchlist":
-            for imdb_user in self.config.IMDb.validate_imdb_watchlists(self.Type, method_data, self.language):
-                self.builders.append((method_name, imdb_user))
+                _chart = imdb.movie_charts if self.library.is_movie else imdb.show_charts
+                if value not in _chart:
+                    raise Failed(f"{self.Type} Error: chart: {value} is invalid options are {', '.join(_chart)}")
+                self.builders.append((method_name, value))
         elif method_name == "imdb_award":
             for dict_data in util.parse(self.Type, method_name, method_data, datatype="listdict"):
                 dict_methods = {dm.lower(): dm for dm in dict_data}
@@ -1523,11 +1538,27 @@ class CollectionBuilder:
                     raise Failed(f"{self.Type} Error: imdb_award event_year attribute is blank")
                 if og_year in ["all", "latest"]:
                     event_year = og_year
-                elif not isinstance(og_year, list) and "-" in str(og_year) and len(str(og_year)) > 7:
+                elif not isinstance(og_year, list) and "-" in str(og_year)[1:] and (len(str(og_year)) > 6 or str(og_year).startswith("-") or "--" in str(og_year)):
                     try:
+                        first_neg = False
+                        second_neg = False
+                        if str(og_year)[0] == "-":
+                            first_neg = True
+                            og_year = str(og_year)[1:]
+                        if "--" in str(og_year):
+                            second_neg = True
+                            og_year = str(og_year).replace("--", "-")
                         min_year, max_year = og_year.split("-")
-                        min_year = int(min_year)
-                        max_year = int(max_year) if max_year != "current" else None
+                        if first_neg:
+                            min_year = self.current_year - int(min_year)
+                        else:
+                            min_year = int(min_year)
+                        if second_neg:
+                            max_year = self.current_year - int(max_year)
+                        elif max_year == "current":
+                            max_year = None
+                        else:
+                            max_year = int(max_year)
                         event_year = []
                         for option in year_options:
                             check = int(option.split("-")[0] if "-" in option else option)
@@ -1535,6 +1566,10 @@ class CollectionBuilder:
                                 event_year.append(option)
                     except ValueError:
                         raise Failed(f"{self.Type} Error: imdb_award event_year attribute invalid: {og_year}")
+                elif str(og_year).startswith("-"):
+                    event_year = str(self.current_year + int(og_year))
+                    if event_year not in year_options:
+                        raise Failed(f"{self.Type} Error: imdb_award event_year attribute not an option: {event_year}. Event Options: [{', '.join(year_options)}]")
                 else:
                     event_year = util.parse(self.Type, "event_year", og_year, parent=method_name, datatype="strlist", options=year_options)
                 if (event_year == "all" or len(event_year) > 1) and not git_event:
@@ -1586,6 +1621,8 @@ class CollectionBuilder:
                         new_dictionary[lower_method] = util.parse(self.Type, search_method, search_data, parent=method_name)
                     elif search_attr == "type":
                         new_dictionary[lower_method] = util.parse(self.Type, search_method, search_data, datatype="lowerlist", parent=method_name, options=imdb.title_type_options)
+                    elif search_attr == "topic":
+                        new_dictionary[lower_method] = util.parse(self.Type, search_method, search_data, datatype="lowerlist", parent=method_name, options=imdb.topic_options)
                     elif search_attr == "release":
                         new_dictionary[lower_method] = util.parse(self.Type, search_method, search_data, datatype="date", parent=method_name, date_return="%Y-%m-%d")
                     elif search_attr == "rating":
@@ -1607,6 +1644,19 @@ class CollectionBuilder:
                                     raise Failed(f"{method_name} {search_method} attribute: {search_data} must match pattern ev\\d+ e.g. ev0000292 or be one of {', '.join([e for e in imdb.event_options])}")
                         if events:
                             new_dictionary[lower_method] = events
+                    elif search_attr == "interests":
+                        interests = []
+                        for interest in util.parse(self.Type, search_method, search_data, datatype="lowerlist", parent=method_name):
+                            if interest in imdb.interest_options:
+                                interests.append(interest)
+                            else:
+                                res = re.search(r'(in\d+)', interest)
+                                if res:
+                                    interests.append(res.group(1))
+                                else:
+                                    raise Failed(f"{method_name} {search_method} attribute: {search_data} must match pattern ev\\d+ e.g. in0000092 or be one of {', '.join([e for e in imdb.interest_options])}")
+                        if interests:
+                            new_dictionary[lower_method] = interests
                     elif search_attr == "company":
                         companies = []
                         for company in util.parse(self.Type, search_method, search_data, datatype="lowerlist", parent=method_name):
@@ -1649,7 +1699,7 @@ class CollectionBuilder:
                                 countries.append(str(country))
                         if countries:
                             new_dictionary[lower_method] = countries
-                    elif search_attr in ["keyword", "language"]:
+                    elif search_attr in ["keyword", "language", "alternate_version", "crazy_credit", "location", "goof", "plot", "quote", "soundtrack", "trivia", "character"]:
                         new_dictionary[lower_method] = util.parse(self.Type, search_method, search_data, datatype="lowerlist", parent=method_name)
                     elif search_attr == "cast":
                         casts = []
@@ -1750,9 +1800,8 @@ class CollectionBuilder:
                         final_attributes["letter"] = util.parse(self.Type, "prefix", dict_data, methods=dict_methods, parent=method_name)
                         final_text += f"\nPrefix: {final_attributes['letter']}"
                     if "type" in dict_methods:
-                        type_list = util.parse(self.Type, "type", dict_data, datatype="commalist", methods=dict_methods, parent=method_name, options=mal.search_types)
-                        final_attributes["type"] = ",".join(type_list)
-                        final_text += f"\nType: {' or '.join(type_list)}"
+                        final_attributes["type"] = util.parse(self.Type, "type", dict_data, methods=dict_methods, parent=method_name, options=mal.search_types)
+                        final_text += f"\nType: {final_attributes['type']}"
                     if "status" in dict_methods:
                         final_attributes["status"] = util.parse(self.Type, "status", dict_data, methods=dict_methods, parent=method_name, options=mal.search_status)
                         final_text += f"\nStatus: {final_attributes['status']}"
@@ -1901,7 +1950,7 @@ class CollectionBuilder:
                             except ValueError:
                                 raise Failed(f"{self.Type} Error: {method_name} range_data attribute invalid: {og_data}")
                         else:
-                            _v = util.parse(self.Type, "range_data", dict_data, methods=dict_methods, parent=method_name, default="current", options=["current"] + util.lower_months)
+                            _v = util.parse(self.Type, "range_data", dict_data, methods=dict_methods, parent=method_name, default="current", options=["current"] + [k for k in util.lower_months])
                             final["range_data"] = chart_date.month if _v == "current" else util.lower_months[_v]
                     elif final["range"] == "quarterly":
                         if str(og_data).startswith("current-"):
@@ -1969,7 +2018,7 @@ class CollectionBuilder:
             self.builders.append((method_name, util.parse(self.Type, method_name, method_data, "bool")))
 
     def _mdblist(self, method_name, method_data):
-        for mdb_dict in self.config.Mdblist.validate_mdblist_lists(self.Type, method_data):
+        for mdb_dict in self.config.MDBList.validate_mdblist_lists(self.Type, method_data):
             self.builders.append((method_name, mdb_dict))
 
     def _tautulli(self, method_name, method_data):
@@ -1993,7 +2042,7 @@ class CollectionBuilder:
         if method_name == "tmdb_discover":
             for dict_data in util.parse(self.Type, method_name, method_data, datatype="listdict"):
                 dict_methods = {dm.lower(): dm for dm in dict_data}
-                new_dictionary = {"limit": util.parse(self.Type, "limit", dict_data, datatype="int", methods=dict_methods, default=100, parent=method_name)}
+                new_dictionary = {"limit": util.parse(self.Type, "limit", dict_data, datatype="int", methods=dict_methods, minimum=0, default=100, parent=method_name)}
                 for discover_method, discover_data in dict_data.items():
                     lower_method = str(discover_method).lower()
                     discover_attr, modifier = os.path.splitext(lower_method)
@@ -2006,9 +2055,9 @@ class CollectionBuilder:
                     elif self.library.is_show and discover_attr in tmdb.discover_movie_only:
                         raise Failed(f"{self.Type} Error: {method_name} {discover_method} attribute only works for movie libraries")
                     elif discover_attr == "region":
-                        new_dictionary[discover_attr] = util.parse(self.Type, discover_method, discover_data, parent=method_name, regex=("^[A-Z]{2}$", "US"))
+                        new_dictionary[discover_attr] = util.parse(self.Type, discover_method, discover_data.upper(), parent=method_name, regex=("^[A-Z]{2}$", "US"))
                     elif discover_attr == "sort_by":
-                        options = tmdb.discover_movie_sort if self.library.is_movie else tmdb.discover_tv_sort
+                        options = discover_movie_sort_options if self.library.is_movie else discover_tv_sort_options
                         new_dictionary[lower_method] = util.parse(self.Type, discover_method, discover_data, parent=method_name, options=options)
                     elif discover_attr == "certification_country":
                         if "certification" in dict_data or "certification.lte" in dict_data or "certification.gte" in dict_data:
@@ -2022,12 +2071,12 @@ class CollectionBuilder:
                             raise Failed(f"{self.Type} Error: {method_name} {discover_method} attribute: must be used with certification_country")
                     elif discover_attr == "watch_region":
                         if "with_watch_providers" in dict_data or "without_watch_providers" in dict_data or "with_watch_monetization_types" in dict_data:
-                            new_dictionary[lower_method] = discover_data
+                            new_dictionary[lower_method] = discover_data.upper()
                         else:
                             raise Failed(f"{self.Type} Error: {method_name} {discover_method} attribute: must be used with either with_watch_providers, without_watch_providers, or with_watch_monetization_types")
                     elif discover_attr == "with_watch_monetization_types":
                         if "watch_region" in dict_data:
-                            new_dictionary[lower_method] = util.parse(self.Type, discover_method, discover_data, parent=method_name, options=tmdb.discover_monetization_types)
+                            new_dictionary[lower_method] = discover_data
                         else:
                             raise Failed(f"{self.Type} Error: {method_name} {discover_method} attribute: must be used with watch_region")
                     elif discover_attr in tmdb.discover_booleans:
@@ -2122,7 +2171,7 @@ class CollectionBuilder:
                 final_method = "trakt_chart"
             if method_name != final_method:
                 logger.warning(f"{self.Type} Warning: {method_name} will run as {final_method}")
-            for trakt_dict in self.config.Trakt.validate_chart(self.Type, final_method, trakt_dicts,  self.library.is_movie):
+            for trakt_dict in self.config.Trakt.validate_chart(self.Type, final_method, trakt_dicts, self.library.is_movie):
                 self.builders.append((final_method, trakt_dict))
 
     def _tvdb(self, method_name, method_data):
@@ -2130,6 +2179,8 @@ class CollectionBuilder:
         if method_name.endswith("_details"):
             if method_name.startswith(("tvdb_movie", "tvdb_show")):
                 item = self.config.TVDb.get_tvdb_obj(values[0], is_movie=method_name.startswith("tvdb_movie"))
+                if item.summary:
+                    self.summaries[method_name] = item.summary
                 if item.background_url:
                     self.backgrounds[method_name] = item.background_url
                 if item.poster_url:
@@ -2207,10 +2258,8 @@ class CollectionBuilder:
             ids = self.config.TVDb.get_tvdb_ids(method, value)
         elif "imdb" in method:
             ids = self.config.IMDb.get_imdb_ids(method, value, self.language)
-        elif "flixpatrol" in method:
-            ids = self.config.FlixPatrol.get_tmdb_ids(method, value, self.library.is_movie)
         elif "icheckmovies" in method:
-            ids = self.config.ICheckMovies.get_imdb_ids(method, value, self.language)
+            ids = self.config.ICheckMovies.get_imdb_ids(method, value)
         elif "letterboxd" in method:
             ids = self.config.Letterboxd.get_tmdb_ids(method, value, self.language)
         elif "reciperr" in method or "stevenlu" in method:
@@ -2218,7 +2267,7 @@ class CollectionBuilder:
         elif "mojo" in method:
             ids = self.config.BoxOfficeMojo.get_imdb_ids(method, value)
         elif "mdblist" in method:
-            ids = self.config.Mdblist.get_tmdb_ids(method, value, self.library.is_movie if not self.playlist else None)
+            ids = self.config.MDBList.get_tmdb_ids(method, value, self.library.is_movie if not self.playlist else None)
         elif "tmdb" in method:
             ids = self.config.TMDb.get_tmdb_ids(method, value, self.library.is_movie, self.tmdb_region)
         elif "trakt" in method:
@@ -2246,186 +2295,193 @@ class CollectionBuilder:
             logger.trace(f"IDs: {ids}")
             logger.debug("")
             for i, input_data in enumerate(ids, 1):
-                input_id, id_type = input_data
-                logger.ghost(f"Parsing ID {i}/{total_ids}")
-                rating_keys = []
-                if id_type == "ratingKey":
-                    rating_keys = int(input_id)
-                elif id_type == "imdb":
-                    if input_id not in self.ignore_imdb_ids:
+                try:
+                    input_id, id_type = input_data
+                    logger.ghost(f"Parsing ID {i}/{total_ids}")
+                    rating_keys = []
+                    if id_type == "ratingKey":
+                        rating_keys = int(input_id)
+                    elif id_type == "imdb":
+                        if input_id not in self.ignore_imdb_ids:
+                            found = False
+                            for pl_library in self.libraries:
+                                if input_id in pl_library.imdb_map:
+                                    found = True
+                                    rating_keys = pl_library.imdb_map[input_id]
+                                    break
+                            if not found and (self.builder_level == "episode" or self.playlist or self.do_missing):
+                                try:
+                                    _id, tmdb_type = self.config.Convert.imdb_to_tmdb(input_id, fail=True)
+                                    if tmdb_type == "episode" and (self.builder_level == "episode" or self.playlist):
+                                        try:
+                                            tmdb_id, season_num, episode_num = _id.split("_")
+                                            tvdb_id = self.config.Convert.tmdb_to_tvdb(tmdb_id, fail=True)
+                                            tvdb_id = int(tvdb_id)
+                                        except Failed as e:
+                                            try:
+                                                if not self.config.OMDb:
+                                                    raise Failed("")
+                                                if self.config.OMDb.limit:
+                                                    raise Failed(" and OMDb limit reached.")
+                                                omdb_item = self.config.OMDb.get_omdb(input_id)
+                                                tvdb_id = omdb_item.series_id
+                                                season_num = omdb_item.season_num
+                                                episode_num = omdb_item.episode_num
+                                                if not tvdb_id or not season_num or not episode_num:
+                                                    raise Failed(f" and OMDb metadata lookup Failed for IMDb ID: {input_id}")
+                                            except Failed as ee:
+                                                logger.error(f"{e}{ee}")
+                                                continue
+                                        for pl_library in self.libraries:
+                                            if tvdb_id in pl_library.show_map:
+                                                found = True
+                                                show_item = pl_library.fetch_item(pl_library.show_map[tvdb_id][0])
+                                                try:
+                                                    items.append(show_item.episode(season=int(season_num), episode=int(episode_num)))
+                                                except NotFound:
+                                                    self.missing_parts.append(f"{show_item.title} Season: {season_num} Episode: {episode_num} Missing")
+                                                break
+                                        if not found and tvdb_id not in self.missing_shows and self.do_missing:
+                                            self.missing_shows.append(tvdb_id)
+                                    elif tmdb_type == "movie" and self.do_missing and _id not in self.missing_movies:
+                                        self.missing_movies.append(_id)
+                                    elif tmdb_type in ["show", "episode"] and self.do_missing:
+                                        if tmdb_type == "episode":
+                                            tmdb_id, _, _ = _id.split("_")
+                                        else:
+                                            tmdb_id = _id
+                                        tvdb_id = self.config.Convert.tmdb_to_tvdb(tmdb_id, fail=True)
+                                        if tvdb_id not in self.missing_shows:
+                                            self.missing_shows.append(tvdb_id)
+                                except Failed as e:
+                                    logger.warning(e)
+                                    continue
+                    elif id_type == "tmdb" and not self.parts_collection:
+                        if not isinstance(input_id, list):
+                            input_id = [input_id]
+                        for in_id in input_id:
+                            in_id = int(in_id)
+                            if in_id not in self.ignore_ids:
+                                found = False
+                                for pl_library in self.libraries:
+                                    if in_id in pl_library.movie_map:
+                                        found = True
+                                        rating_keys = pl_library.movie_map[in_id]
+                                        break
+                                if not found and in_id not in self.missing_movies:
+                                    self.missing_movies.append(in_id)
+                    elif id_type == "tvdb_season" and (self.builder_level == "season" or self.playlist):
+                        tvdb_id, season_num = input_id.split("_")
+                        tvdb_id = int(tvdb_id)
                         found = False
                         for pl_library in self.libraries:
-                            if input_id in pl_library.imdb_map:
+                            if tvdb_id in pl_library.show_map:
                                 found = True
-                                rating_keys = pl_library.imdb_map[input_id]
-                                break
-                        if not found and (self.builder_level == "episode" or self.playlist or self.do_missing):
-                            try:
-                                _id, tmdb_type = self.config.Convert.imdb_to_tmdb(input_id, fail=True)
-                                if tmdb_type == "episode" and (self.builder_level == "episode" or self.playlist):
-                                    try:
-                                        tmdb_id, season_num, episode_num = _id.split("_")
-                                        tvdb_id = self.config.Convert.tmdb_to_tvdb(tmdb_id, fail=True)
-                                        tvdb_id = int(tvdb_id)
-                                    except Failed as e:
-                                        try:
-                                            if not self.config.OMDb:
-                                                raise Failed("")
-                                            if self.config.OMDb.limit:
-                                                raise Failed(" and OMDb limit reached.")
-                                            omdb_item = self.config.OMDb.get_omdb(input_id)
-                                            tvdb_id = omdb_item.series_id
-                                            season_num = omdb_item.season_num
-                                            episode_num = omdb_item.episode_num
-                                            if not tvdb_id or not season_num or not episode_num:
-                                                raise Failed(f" and OMDb metadata lookup Failed for IMDb ID: {input_id}")
-                                        except Failed as ee:
-                                            logger.error(f"{e}{ee}")
-                                            continue
-                                    for pl_library in self.libraries:
-                                        if tvdb_id in pl_library.show_map:
-                                            found = True
-                                            show_item = pl_library.fetch_item(pl_library.show_map[tvdb_id][0])
-                                            try:
-                                                items.append(show_item.episode(season=int(season_num), episode=int(episode_num)))
-                                            except NotFound:
-                                                self.missing_parts.append(f"{show_item.title} Season: {season_num} Episode: {episode_num} Missing")
-                                            break
-                                    if not found and tvdb_id not in self.missing_shows and self.do_missing:
-                                        self.missing_shows.append(tvdb_id)
-                                elif tmdb_type == "movie" and self.do_missing and _id not in self.missing_movies:
-                                    self.missing_movies.append(_id)
-                                elif tmdb_type in ["show", "episode"] and self.do_missing:
-                                    if tmdb_type == "episode":
-                                        tmdb_id, _, _ = _id.split("_")
+                                show_item = pl_library.fetch_item(pl_library.show_map[tvdb_id][0])
+                                try:
+                                    season_obj = show_item.season(season=int(season_num))
+                                    if self.playlist:
+                                        items.extend(season_obj.episodes())
                                     else:
-                                        tmdb_id = _id
-                                    tvdb_id = self.config.Convert.tmdb_to_tvdb(tmdb_id, fail=True)
-                                    if tvdb_id not in self.missing_shows:
-                                        self.missing_shows.append(tvdb_id)
+                                        items.append(season_obj)
+                                except NotFound:
+                                    self.missing_parts.append(f"{show_item.title} Season: {season_num} Missing")
+                                break
+                        if not found and tvdb_id not in self.missing_shows:
+                            self.missing_shows.append(tvdb_id)
+                    elif id_type == "tvdb_episode" and (self.builder_level == "episode" or self.playlist):
+                        tvdb_id, season_num, episode_num = input_id.split("_")
+                        tvdb_id = int(tvdb_id)
+                        found = False
+                        for pl_library in self.libraries:
+                            if tvdb_id in pl_library.show_map:
+                                found = True
+                                show_item = pl_library.fetch_item(pl_library.show_map[tvdb_id][0])
+                                try:
+                                    items.append(show_item.episode(season=int(season_num), episode=int(episode_num)))
+                                except NotFound:
+                                    self.missing_parts.append(f"{show_item.title} Season: {season_num} Episode: {episode_num} Missing")
+                        if not found and tvdb_id not in self.missing_shows and self.do_missing:
+                            self.missing_shows.append(tvdb_id)
+                    elif id_type in ["tvdb", "tmdb_show", "tvdb_season", "tvdb_episode"]:
+                        tvdb_season = None
+                        if id_type == "tmdb_show":
+                            try:
+                                tvdb_id = self.config.Convert.tmdb_to_tvdb(input_id, fail=True)
                             except Failed as e:
                                 logger.warning(e)
                                 continue
-                elif id_type == "tmdb" and not self.parts_collection:
-                    input_id = int(input_id)
-                    if input_id not in self.ignore_ids:
-                        found = False
-                        for pl_library in self.libraries:
-                            if input_id in pl_library.movie_map:
-                                found = True
-                                rating_keys = pl_library.movie_map[input_id]
-                                break
-                        if not found and input_id not in self.missing_movies:
-                            self.missing_movies.append(input_id)
-                elif id_type == "tvdb_season" and (self.builder_level == "season" or self.playlist):
-                    tvdb_id, season_num = input_id.split("_")
-                    tvdb_id = int(tvdb_id)
-                    found = False
-                    for pl_library in self.libraries:
-                        if tvdb_id in pl_library.show_map:
-                            found = True
-                            show_item = pl_library.fetch_item(pl_library.show_map[tvdb_id][0])
-                            try:
-                                season_obj = show_item.season(season=int(season_num))
-                                if self.playlist:
-                                    items.extend(season_obj.episodes())
-                                else:
-                                    items.append(season_obj)
-                            except NotFound:
-                                self.missing_parts.append(f"{show_item.title} Season: {season_num} Missing")
-                            break
-                    if not found and tvdb_id not in self.missing_shows:
-                        self.missing_shows.append(tvdb_id)
-                elif id_type == "tvdb_episode" and (self.builder_level == "episode" or self.playlist):
-                    tvdb_id, season_num, episode_num = input_id.split("_")
-                    tvdb_id = int(tvdb_id)
-                    found = False
-                    for pl_library in self.libraries:
-                        if tvdb_id in pl_library.show_map:
-                            found = True
-                            show_item = pl_library.fetch_item(pl_library.show_map[tvdb_id][0])
-                            try:
-                                items.append(show_item.episode(season=int(season_num), episode=int(episode_num)))
-                            except NotFound:
-                                self.missing_parts.append(f"{show_item.title} Season: {season_num} Episode: {episode_num} Missing")
-                    if not found and tvdb_id not in self.missing_shows and self.do_missing:
-                        self.missing_shows.append(tvdb_id)
-                elif id_type in ["tvdb", "tmdb_show", "tvdb_season", "tvdb_episode"]:
-                    tvdb_season = None
-                    if id_type == "tmdb_show":
-                        try:
-                            tvdb_id = self.config.Convert.tmdb_to_tvdb(input_id, fail=True)
-                        except Failed as e:
-                            logger.warning(e)
-                            continue
-                    elif id_type == "tvdb_season":
-                        tvdb_id, tvdb_season = input_id.split("_")
-                        tvdb_id = int(tvdb_id)
-                        tvdb_season = int(tvdb_season)
-                    elif id_type == "tvdb_episode":
-                        tvdb_id, _, _ = input_id.split("_")
-                        tvdb_id = int(tvdb_id)
-                    else:
-                        tvdb_id = int(input_id)
-                    if tvdb_id not in self.ignore_ids:
-                        found_keys = None
-                        for pl_library in self.libraries:
-                            if tvdb_id in pl_library.show_map:
-                                found_keys = pl_library.show_map[tvdb_id]
-                                break
-                        if not found_keys and tvdb_id not in self.missing_shows:
-                            self.missing_shows.append(tvdb_id)
-                        if found_keys:
-                            if self.parts_collection:
-                                rating_keys = []
-                                for rk in found_keys:
-                                    try:
-                                        item = self.library.fetch_item(rk)
-                                        if self.builder_level == "episode" and isinstance(item, Show):
-                                            if tvdb_season is not None:
-                                                item = item.season(season=tvdb_season)
-                                            rating_keys.extend([k.ratingKey for k in item.episodes()])
-                                        elif self.builder_level == "season" and isinstance(item, Show):
-                                            rating_keys.extend([k.ratingKey for k in item.seasons()])
-                                    except Failed as e:
-                                        logger.error(e)
-                            else:
-                                rating_keys = found_keys
-                else:
-                    continue
-
-                if not isinstance(rating_keys, list):
-                    rating_keys = [rating_keys]
-                for rk in rating_keys:
-                    try:
-                        item = self.library.fetch_item(rk)
-                        if self.playlist and isinstance(item, (Show, Season)):
-                            items.extend(item.episodes())
-                        elif self.builder_level == "movie" and not isinstance(item, Movie):
-                            logger.info(f"Item: {item} is not an Movie")
-                        elif self.builder_level == "show" and not isinstance(item, Show):
-                            logger.info(f"Item: {item} is not an Show")
-                        elif self.builder_level == "episode" and not isinstance(item, Episode):
-                            logger.info(f"Item: {item} is not an Episode")
-                        elif self.builder_level == "season" and not isinstance(item, Season):
-                            logger.info(f"Item: {item} is not a Season")
-                        elif self.builder_level == "artist" and not isinstance(item, Artist):
-                            logger.info(f"Item: {item} is not an Artist")
-                        elif self.builder_level == "album" and not isinstance(item, Album):
-                            logger.info(f"Item: {item} is not an Album")
-                        elif self.builder_level == "track" and not isinstance(item, Track):
-                            logger.info(f"Item: {item} is not a Track")
+                        elif id_type == "tvdb_season":
+                            tvdb_id, tvdb_season = input_id.split("_")
+                            tvdb_id = int(tvdb_id)
+                            tvdb_season = int(tvdb_season)
+                        elif id_type == "tvdb_episode":
+                            tvdb_id, _, _ = input_id.split("_")
+                            tvdb_id = int(tvdb_id)
                         else:
-                            items.append(item)
-                    except Failed as e:
-                        logger.error(e)
+                            tvdb_id = int(input_id)
+                        if tvdb_id not in self.ignore_ids:
+                            found_keys = None
+                            for pl_library in self.libraries:
+                                if tvdb_id in pl_library.show_map:
+                                    found_keys = pl_library.show_map[tvdb_id]
+                                    break
+                            if not found_keys and tvdb_id not in self.missing_shows:
+                                self.missing_shows.append(tvdb_id)
+                            if found_keys:
+                                if self.parts_collection:
+                                    rating_keys = []
+                                    for rk in found_keys:
+                                        try:
+                                            item = self.library.fetch_item(rk)
+                                            if self.builder_level == "episode" and isinstance(item, Show):
+                                                if tvdb_season is not None:
+                                                    item = item.season(season=tvdb_season)
+                                                rating_keys.extend([k.ratingKey for k in item.episodes()])
+                                            elif self.builder_level == "season" and isinstance(item, Show):
+                                                rating_keys.extend([k.ratingKey for k in item.seasons()])
+                                        except Failed as e:
+                                            logger.error(e)
+                                else:
+                                    rating_keys = found_keys
+                    else:
+                        continue
+                    if not isinstance(rating_keys, list):
+                        rating_keys = [rating_keys]
+                    for rk in rating_keys:
+                        try:
+                            item = self.library.fetch_item(rk)
+                            if self.playlist and isinstance(item, (Show, Season)):
+                                items.extend(item.episodes())
+                            elif self.builder_level == "movie" and not isinstance(item, Movie):
+                                logger.info(f"Item: {item} is not an Movie")
+                            elif self.builder_level == "show" and not isinstance(item, Show):
+                                logger.info(f"Item: {item} is not an Show")
+                            elif self.builder_level == "episode" and not isinstance(item, Episode):
+                                logger.info(f"Item: {item} is not an Episode")
+                            elif self.builder_level == "season" and not isinstance(item, Season):
+                                logger.info(f"Item: {item} is not a Season")
+                            elif self.builder_level == "artist" and not isinstance(item, Artist):
+                                logger.info(f"Item: {item} is not an Artist")
+                            elif self.builder_level == "album" and not isinstance(item, Album):
+                                logger.info(f"Item: {item} is not an Album")
+                            elif self.builder_level == "track" and not isinstance(item, Track):
+                                logger.info(f"Item: {item} is not a Track")
+                            else:
+                                items.append(item)
+                        except Failed as e:
+                            logger.error(e)
+                except Exception as e:
+                    logger.stacktrace()
+                    logger.error(e)
+                    logger.info(input_data)
             logger.exorcise()
         if not items:
             return None
         name = self.obj.title if self.obj else self.name
         total = len(items)
         max_length = len(str(total))
-        if self.filters and self.details["show_filtered"] is True:
+        if self.filters and (self.details["show_filtered"] is True or self.details["show_unfiltered"] is True):
             logger.info("")
             logger.info("Filtering Builders:")
         filtered_items = []
@@ -2441,6 +2497,8 @@ class CollectionBuilder:
                     current_title = util.item_title(item)
                     if self.check_filters(item, f"{(' ' * (max_length - len(str(i))))}{i}/{total}"):
                         self.found_items.append(item)
+                        if self.details["show_unfiltered"] is True:
+                            logger.info(f"{name} {self.Type} | = | {current_title}")
                     else:
                         filtered_items.append(item)
                         self.filtered_keys[item.ratingKey] = current_title
@@ -2659,7 +2717,7 @@ class CollectionBuilder:
                 for name, key in names:
                     if name not in used and re.compile(reg).search(name):
                         used.append(name)
-                        valid_list.append((name, key) if plex_search else key)
+                        valid_list.append((name, key) if plex_search else name)
             if not valid_list:
                 error = f"Plex Error: {attribute}: No matches found with regex pattern {data}"
                 if self.details["show_options"]:
@@ -2702,7 +2760,7 @@ class CollectionBuilder:
             return util.get_list(data, upper=True)
         elif attribute in ["original_language", "tmdb_keyword"]:
             return util.get_list(data, lower=True)
-        elif attribute in ["tmdb_genre"]:
+        elif attribute in ["tmdb_genre", "tvdb_genre"]:
             return util.get_list(data)
         elif attribute == "history":
             try:
@@ -2879,7 +2937,7 @@ class CollectionBuilder:
                 if self.details["changes_webhooks"]:
                     self.notification_removals.append(util.item_set(item, self.library.get_id_from_maps(item.ratingKey)))
             if self.playlist and items_removed:
-                self.library._reload(self.obj)
+                self.library.item_reload(self.obj)
                 self.obj.removeItems(items_removed)
             elif items_removed:
                 self.library.alter_collection(items_removed, self.name, smart_label_collection=self.smart_label_collection, add=False)
@@ -2893,6 +2951,13 @@ class CollectionBuilder:
         for filter_method, filter_data in filters_in:
             filter_attr, modifier, filter_final = self.library.split(filter_method)
             if self.config.TMDb.item_filter(tmdb_item, filter_attr, modifier, filter_final, filter_data, is_movie, self.current_time) is False:
+                return False
+        return True
+
+    def check_tvdb_filters(self, tvdb_item, filters_in):
+        for filter_method, filter_data in filters_in:
+            filter_attr, modifier, filter_final = self.library.split(filter_method)
+            if self.config.TVDb.item_filter(tvdb_item, filter_attr, modifier, filter_final, filter_data) is False:
                 return False
         return True
 
@@ -2953,14 +3018,18 @@ class CollectionBuilder:
             item = self.library.reload(item)
             final_return = False
             tmdb_item = None
+            tvdb_item = None
             imdb_info = None
             for filter_list in self.filters:
                 tmdb_f = []
+                tvdb_f = []
                 imdb_f = []
                 plex_f = []
                 for k, v in filter_list:
                     if k.split(".")[0] in tmdb_filters:
                         tmdb_f.append((k, v))
+                    elif k.split(".")[0] in tvdb_filters:
+                        tvdb_f.append((k, v))
                     elif k.split(".")[0] in imdb_filters:
                         imdb_f.append((k, v))
                     else:
@@ -2981,6 +3050,19 @@ class CollectionBuilder:
                                 logger.error(e)
                                 or_result = False
                     if not tmdb_item or self.check_tmdb_filters(tmdb_item, tmdb_f, item.ratingKey in self.library.movie_rating_key_map) is False:
+                        or_result = False
+                if tvdb_f:
+                    if not tvdb_item and isinstance(item, Show):
+                        if item.ratingKey not in self.library.show_rating_key_map:
+                            logger.warning(f"Filter Error: No TVDb ID found for {item.title}")
+                            or_result = False
+                        else:
+                            try:
+                                tvdb_item = self.config.TVDb.get_tvdb_obj(self.library.show_rating_key_map[item.ratingKey])
+                            except Failed as e:
+                                logger.error(e)
+                                or_result = False
+                    if not tvdb_item or self.check_tvdb_filters(tvdb_item, tvdb_f) is False:
                         or_result = False
                 if imdb_f:
                     if not imdb_info and isinstance(item, (Movie, Show)):
@@ -3011,7 +3093,7 @@ class CollectionBuilder:
     def run_missing(self):
         added_to_radarr = 0
         added_to_sonarr = 0
-        if len(self.missing_movies) > 0:
+        if len(self.missing_movies) > 0 and (self.library.is_movie or self.is_playlist):
             if self.details["show_missing"] is True:
                 logger.info("")
                 logger.separator(f"Missing Movies from Library: {self.library.name}", space=False, border=False)
@@ -3063,7 +3145,7 @@ class CollectionBuilder:
                         self.run_again_movies.extend(missing_tmdb_ids)
             if len(filtered_movies_with_names) > 0 and self.do_report:
                 self.library.add_filtered(self.name, filtered_movies_with_names, True)
-        if len(self.missing_shows) > 0 and self.library.is_show:
+        if len(self.missing_shows) > 0 and (self.library.is_show or self.is_playlist):
             if self.details["show_missing"] is True:
                 logger.info("")
                 logger.separator(f"Missing Shows from Library: {self.name}", space=False, border=False)
@@ -3220,6 +3302,10 @@ class CollectionBuilder:
                     time.sleep(delay)
                 self.library.query(item.refresh)
 
+            if "item_analyze" in self.item_details:
+                logger.info(f"Executing Analyze on {item.title}")
+                item.analyze()
+
         if self.library.Radarr and tmdb_paths:
             try:
                 if "item_radarr_tag" in self.item_details:
@@ -3308,7 +3394,7 @@ class CollectionBuilder:
                         logger.error("Metadata: Failed to Update Please delete the collection and run again")
                     logger.info("")
         else:
-            self.library._reload(self.obj)
+            self.library.item_reload(self.obj)
             #self.obj.batchEdits()
             batch_display = "Collection Metadata Edits"
             if summary[1] and str(summary[1]) != str(self.obj.summary):
@@ -3336,9 +3422,9 @@ class CollectionBuilder:
             remove_tags = self.details["label.remove"] if "label.remove" in self.details else None
             sync_tags = self.details["label.sync"] if "label.sync" in self.details else None
             if sync_tags:
-                sync_tags.append("PMM")
+                sync_tags.append("Kometa")
             else:
-                add_tags.append("PMM")
+                add_tags.append("Kometa")
             tag_results = self.library.edit_tags('label', self.obj, add_tags=add_tags, remove_tags=remove_tags, sync_tags=sync_tags, do_print=False)
             if tag_results:
                 batch_display += f"\n{tag_results}"
@@ -3429,11 +3515,11 @@ class CollectionBuilder:
             elif style_data and "tpdb_background" in style_data and style_data["tpdb_background"]:
                 self.backgrounds["style_data"] = f"https://theposterdb.com/api/assets/{style_data['tpdb_background']}"
 
-        self.collection_poster = util.pick_image(self.obj.title, self.posters, self.library.prioritize_assets, self.library.download_url_assets, asset_location)
-        self.collection_background = util.pick_image(self.obj.title, self.backgrounds, self.library.prioritize_assets, self.library.download_url_assets, asset_location, is_poster=False)
+        self.collection_poster = self.library.pick_image(self.obj.title, self.posters, self.library.prioritize_assets, self.library.download_url_assets, asset_location)
+        self.collection_background = self.library.pick_image(self.obj.title, self.backgrounds, self.library.prioritize_assets, self.library.download_url_assets, asset_location, is_poster=False)
 
         clean_temp = False
-        if isinstance(self.collection_poster, PMMImage):
+        if isinstance(self.collection_poster, KometaImage):
             clean_temp = True
             item_vars = {"title": self.name, "titleU": self.name.upper(), "titleL": self.name.lower()}
             self.collection_poster = self.collection_poster.save(item_vars)
@@ -3479,6 +3565,7 @@ class CollectionBuilder:
                 else:
                     raise Failed(str(e))
             items = self.library.fetchItems(search_data[2])
+        total_items = len(items)
         previous = None
         sort_edit = False
         for i, item in enumerate(items, 0):
@@ -3486,7 +3573,7 @@ class CollectionBuilder:
                 if len(self.items) <= i or item.ratingKey != self.items[i].ratingKey:
                     text = f"after {util.item_title(previous)}" if previous else "to the beginning"
                     self.library.moveItem(self.obj, item, previous)
-                    logger.info(f"Moving {util.item_title(item)} {text}")
+                    logger.info(f"({i + 1}/{total_items}) Moving {util.item_title(item)} {text}")
                     sort_edit = True
                 previous = item
             except Failed:
@@ -3500,7 +3587,7 @@ class CollectionBuilder:
         logger.separator(f"Syncing {self.name} {self.Type} to Trakt List {self.sync_to_trakt_list}", space=False, border=False)
         logger.info("")
         if self.obj:
-            self.library._reload(self.obj)
+            self.library.item_reload(self.obj)
         self.load_collection_items()
         current_ids = []
         for item in self.items:
@@ -3526,7 +3613,6 @@ class CollectionBuilder:
         title = self.obj.title if self.obj else self.name
         if self.playlist:
             output = f"Deleting {self.Type} {title}"
-            output += f"\n{self.Type} {'deleted' if self.obj else 'not found'} on {self.library.account.username}"
         elif self.obj:
             output = f"{self.Type} {self.obj.title} deleted"
             if self.smart_label_collection:
@@ -3534,16 +3620,20 @@ class CollectionBuilder:
                     self.library.edit_tags("label", item, remove_tags=self.name)
         else:
             output = ""
-        if self.obj:
-            self.library.delete(self.obj)
 
-        if self.playlist and self.valid_users:
+        if self.playlist:
             for user in self.valid_users:
                 try:
-                    self.library.delete_user_playlist(title, user)
+                    if user == self.library.account.username:
+                        _ = self.library.get_playlist(title)  # Verify if this playlist exists in Admin to avoid log confusion
+                        self.library.delete(self.obj)
+                    else:
+                        self.library.delete_user_playlist(title, user)
                     output += f"\nPlaylist deleted on User {user}"
                 except Failed:
                     output += f"\nPlaylist not found on User {user}"
+        elif self.obj:
+            self.library.delete(self.obj)
         return output
 
     def sync_playlist(self):
@@ -3556,13 +3646,25 @@ class CollectionBuilder:
                     self.library.delete_user_playlist(self.obj.title, user)
                 except Failed:
                     pass
-                self.obj.copyToUser(user)
-                logger.info(f"Playlist: {self.name} synced to {user}")
+                if user != self.library.account.username:
+                    self.obj.copyToUser(user).editSummary(summary=self.obj.summary).reload()
+                    logger.info(f"Playlist: {self.name} synced to {user}")
+
+    def exclude_admin_from_playlist(self):
+        if self.obj and (self.exclude_users is not None and self.library.account.username in self.exclude_users):
+            logger.info("")
+            logger.separator(f"Excluding Admin from Playlist", space=False, border=False)
+            logger.info("")
+            try:
+                self.library.delete(self.obj)
+                logger.info(f"Playlist: {self.name} deleted on User {self.library.account.username}")
+            except Failed:
+                logger.info(f"Playlist: {self.name} not found on User {self.library.account.username}")
 
     def send_notifications(self, playlist=False):
         if self.obj and self.details["changes_webhooks"] and \
                 (self.created or len(self.notification_additions) > 0 or len(self.notification_removals) > 0):
-            self.library._reload(self.obj)
+            self.library.item_reload(self.obj)
             try:
                 self.library.Webhooks.collection_hooks(
                     self.details["changes_webhooks"],

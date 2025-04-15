@@ -27,6 +27,12 @@ def fmt_filter(record):
 
 _srcfile = os.path.normcase(fmt_filter.__code__.co_filename)
 
+def log_namer(default_name):
+    log_path = os.path.dirname(default_name)
+    log_file = os.path.basename(default_name)
+    base, ext, num = log_file.split(".")
+    return f"{log_path}/{base}-{num}.{ext}"
+
 
 class MyLogger:
     def __init__(self, logger_name, default_dir, screen_width, separating_character, ignore_ghost, is_debug, is_trace, log_requests):
@@ -51,7 +57,8 @@ class MyLogger:
         self.secrets = []
         self.spacing = 0
         self.playlists_log = os.path.join(self.playlists_dir, PLAYLISTS_LOG)
-        os.makedirs(self.log_dir, exist_ok=True)
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir, exist_ok=True)
         self._logger = logging.getLogger(None if self.log_requests else self.logger_name)
         self._logger.setLevel(logging.DEBUG)
 
@@ -65,6 +72,7 @@ class MyLogger:
 
     def _get_handler(self, log_file, count=3):
         _handler = RotatingFileHandler(log_file, delay=True, mode="w", backupCount=count, encoding="utf-8")
+        _handler.namer = log_namer
         self._formatter(handler=_handler)
         if os.path.isfile(log_file):
             self._logger.removeHandler(_handler)

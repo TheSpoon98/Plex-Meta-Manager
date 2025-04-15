@@ -1,24 +1,27 @@
-# MdbList Attributes
+---
+hide:
+  - toc
+---
+# MDBList Attributes
 
-Configuring [MdbList](https://mdblist.com/) is optional but can allow you to mass edit metadata.
+Configuring [MDBList](https://mdblist.com/) is optional but can allow you to mass edit metadata.
 
-A `mdblist` mapping is in the root of the config file.
+A `mdblist` mapping is in the root of the config file, sampled below.
 
-Below is a `mdblist` mapping example and the full set of attributes:
-```yaml
+```yaml title="config.yml MDBList sample"
 mdblist:
-  apikey: #########################
+  apikey: thisismyapikey
   cache_expiration: 60
 ```
 
-| Attribute          | Allowed Values                                                            | Default |                  Required                  |
-|:-------------------|:--------------------------------------------------------------------------|:--------|:------------------------------------------:|
-| `apikey`           | MdbList API Key                                                           | N/A     | :fontawesome-solid-circle-check:{ .green } |
-| `cache_expiration` | Number of days before each cache mapping expires and has to be re-cached. | 60      |  :fontawesome-solid-circle-xmark:{ .red }  |
+| Attribute          | Description                                                                  | Allowed Values (default in **bold**)            | Required                                   |
+|:-------------------|:-----------------------------------------------------------------------------|:------------------------------------------------|:------------------------------------------:|
+| `apikey`           | MDBList API key.                                                             | Any valid key or leave **blank**                | :fontawesome-solid-circle-check:{ .green } |
+| `cache_expiration` | Days before each cache mapping expires and must be re-cached.                | Integer, e.g. **`60`**                          | :fontawesome-solid-circle-xmark:{ .red }   |
 
 ???+ tip
 
-    The MdbList apikey can be found [here](https://mdblist.com/preferences/).
+    The MDBList apikey can be found [here](https://mdblist.com/preferences/).
 
     The free apikey is limited to 1000 requests per day so if you hit your limit the program should be able to pick up 
     where it left off the next day as long as the `cache` [Setting](settings.md#cache) is enabled.

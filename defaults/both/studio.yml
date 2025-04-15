@@ -2,11 +2,11 @@
 #                             Studio Collections                             #
 #                 Created by Yozora, Bullmoose20, & Sohjiro                  #
 #          EDITING THIS FILE MAY CAUSE PULLING NEW UPDATES TO FAIL           #
-#          https://metamanager.wiki/en/latest/defaults/both/studio           #
+#            https://kometa.wiki/en/latest/defaults/both/studio              #
 ##############################################################################
 
 external_templates:
-  pmm: templates
+  default: templates
   template_variables:
     collection_section: "070"
 
@@ -274,6 +274,7 @@ dynamic_collections:
       - Bosque Ranch Productions
       - Box to Box Films
       - Brandywine Productions
+      - Broken Lizard Industries
       - Broken Road Productions
       - Calt Production
       - Canal+
@@ -290,6 +291,7 @@ dynamic_collections:
       - Chimp Television
       - Chris Morgan Productions
       - Cinergi Pictures Entertainment
+      - Codeblack Entertainment
       - Columbia Pictures
       - Constantin Film
       - Cowboy Films
@@ -297,12 +299,17 @@ dynamic_collections:
       - Dark Horse Entertainment
       - Davis Entertainment
       - DC Comics
+      - Dimension Films
       - Dino De Laurentiis Company
+      - Disney Television Animation
+      - DisneyToon Studios
       - Don Simpson Jerry Bruckheimer Films
       - Doozer
       - Dreams Salon Entertainment Culture
       - DreamWorks Studios
       - DreamWorks Pictures
+      - Dropout
+      - Dynamic Planning
       - Eleventh Hour Films
       - EMJAG Productions
       - Endeavor Content
@@ -314,6 +321,7 @@ dynamic_collections:
       - Exposure Labs
       - Fandango
       - Fields Entertainment
+      - Film4 Productions
       - FilmDistrict
       - FilmNation Entertainment
       - Flynn Picture Company
@@ -329,6 +337,7 @@ dynamic_collections:
       - Gary Sanchez Productions
       - Gaumont
       - Generator Entertainment
+      - Golden Harvest
       - Gracie Films
       - Green Hat Films
       - Grindstone Entertainment Group
@@ -341,6 +350,7 @@ dynamic_collections:
       - HBO
       - Heyday Films
       - Hughes Entertainment
+      - Hungry Man
       - Hurwitz & Schlossberg Productions
       - Hyperobject Industries
       - Icon Entertainment International
@@ -374,6 +384,7 @@ dynamic_collections:
       - Live Entertainment
       - Lord Miller Productions
       - Lucasfilm Ltd
+      - Magic Light Pictures
       - Magnolia Pictures
       - Malevolent Films
       - Mandalay Entertainment
@@ -431,10 +442,13 @@ dynamic_collections:
       - Scion Films
       - Scott Free Productions
       - Sculptor Media
+      - Screen Gems
       - Sean Daniel Company
+      - Searchlight Pictures
       - Secret Hideout
       - See-Saw Films
       - Serendipity Pictures
+      - Shaw Brothers
       - Show East
       - Showtime Networks
       - Sil-Metropole Organisation
@@ -456,6 +470,7 @@ dynamic_collections:
       - Studio 8
       - Studio Babelsberg
       - Studio Dragon
+      - Studio Live
       - STX Entertainment
       - Summit Entertainment
       - Syfy
@@ -472,6 +487,7 @@ dynamic_collections:
       - The Littlefield Company
       - The Mark Gordon Company
       - The Sea Change Project
+      - The Stone Quarry
       - The Weinstein Company
       - Tim Burton Productions
       - TOHO
@@ -570,6 +586,9 @@ dynamic_collections:
         - DreamWorks Animation
         - DreamWorks Animation Television
         - DreamWorks Classics
+      Dropout:
+        - CollegeHumor
+        - CollegeHumor Media
       EMT Squared:
         - EMT²0
       feel.:
@@ -587,6 +606,7 @@ dynamic_collections:
       Gonzo:
         - Gonzo Digimation
       Hallmark:
+        - Hallmark+
         - Hallmark Channel
         - Hallmark Entertainment
         - Hallmark Media
@@ -650,6 +670,8 @@ dynamic_collections:
         - Monarchy Enterprises S.a.r.l.
       Science SARU:
         - Science Saru
+      Searchlight Pictures:
+        - Fox Searchlight Pictures
       Seven Arcs:
         - Seven
         - Seven Arcs Pictures

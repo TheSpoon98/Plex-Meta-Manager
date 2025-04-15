@@ -2,11 +2,11 @@
 #                             Network Overlay                                #
 #                 Created by Yozora, Bullmoose20, & Sohjiro                  #
 #          EDITING THIS FILE MAY CAUSE PULLING NEW UPDATES TO FAIL           #
-#        https://metamanager.wiki/en/latest/defaults/overlays/network        #
+#          https://kometa.wiki/en/latest/defaults/overlays/network           #
 ##############################################################################
 
 external_templates:
-  pmm: templates
+  default: templates
   template_variables:
     run_definition:
       - <<use_<<key>>>>
@@ -35,7 +35,7 @@ external_templates:
             value: 0
           - horizontal_align: [left, right]
             value: 15
-      pmm:
+      default:
         conditions:
           - file.exists: false
             file_<<key>>.exists: false
@@ -129,6 +129,10 @@ overlays:
     variables: { weight: 10}
     template: [name: standard, {name: networks, search: [Animal Planet, Animal Planet Brasil, Animal Planet Deutschland]}]
 
+  ANIMAX:
+    variables: { weight: 10}
+    template: [name: standard, name: networks]
+
   Angel Studios:
     variables: { weight: 10}
     template: [name: standard, {name: networks, search: [Angel Studios, VidAngel]}]
@@ -166,6 +170,10 @@ overlays:
     template: [name: standard, name: networks]
 
   Azteca Uno:
+    variables: { weight: 10}
+    template: [name: standard, name: networks]
+
+  A&E:
     variables: { weight: 10}
     template: [name: standard, name: networks]
 
@@ -339,7 +347,7 @@ overlays:
 
   Discovery:
     variables: { weight: 10}
-    template: [name: standard, {name: networks, search: [Discovery, Discovery Health Channel, Discovery Channel, Discovery Home & Health Brasil, Discovery Family, Discovery Real Time, Discovery Asia, Discovery Home & Health, Discovery Life, Discovery World, Discovery Science]}]
+    template: [name: standard, {name: networks, search: [Discovery, Discovery Health Channel, Discovery Channel, Discovery Home & Health Brasil, Discovery Family, Discovery Real Time, Discovery Asia, Discovery Home & Health, Discovery Life, Discovery World, Discovery Science, Discovery Channel (UK)]}]
 
   Discovery Kids:
     variables: { weight: 10}
@@ -449,6 +457,10 @@ overlays:
     variables: { weight: 10}
     template: [name: standard, name: networks]
 
+  funnyordie.com:
+    variables: { weight: 10}
+    template: [name: standard, name: networks]
+
   FX:
     variables: { weight: 10}
     template: [name: standard, name: networks]
@@ -479,7 +491,7 @@ overlays:
 
   Hallmark:
     variables: { weight: 10}
-    template: [name: standard, {name: networks, search: [Hallmark, Hallmark Channel, Hallmark Drama, Hallmark Movie & Mysteries, Hallmark Movies Now]}]
+    template: [name: standard, {name: networks, search: [Hallmark, Hallmark+, Hallmark Channel, Hallmark Drama, Hallmark Movie & Mysteries, Hallmark Movies Now]}]
 
   HBO:
     variables: { weight: 10}
@@ -651,7 +663,7 @@ overlays:
 
   National Geographic:
     variables: { weight: 10}
-    template: [name: standard, {name: networks, search: [National Geographic, National Geographic Channel, National Geographic Brasil, National Geographic Latinoamerica, National Geographic India]}]
+    template: [name: standard, {name: networks, search: [National Geographic, National Geographic Channel, National Geographic Brasil, National Geographic Latinoamerica, National Geographic India, Nat Geo Wild]}]
 
   NBC:
     variables: { weight: 10}
@@ -664,6 +676,10 @@ overlays:
   Network 10:
     variables: { weight: 10}
     template: [name: standard, {name: networks, search: [Network 10, Network Ten]}]
+
+  NFL Network:
+    variables: { weight: 10}
+    template: [name: standard, name: networks]
 
   NHK:
     variables: { weight: 10}
@@ -723,7 +739,7 @@ overlays:
 
   Paramount+:
     variables: { weight: 10}
-    template: [name: standard, name: networks]
+    template: [name: standard, {name: networks, search: [Paramount+, Paramount+ with Showtime]}]
 
   PBS:
     variables: { weight: 10}
@@ -742,6 +758,10 @@ overlays:
     template: [name: standard, name: networks]
 
   Prime Video:
+    variables: { weight: 10}
+    template: [name: standard, name: networks]
+
+  Quibi:
     variables: { weight: 10}
     template: [name: standard, name: networks]
 
@@ -789,6 +809,10 @@ overlays:
     variables: { weight: 10}
     template: [name: standard, name: networks]
 
+  Seeso:
+    variables: { weight: 10}
+    template: [name: standard, name: networks]
+
   Seven Network:
     variables: { weight: 10}
     template: [name: standard, name: networks]
@@ -807,7 +831,7 @@ overlays:
 
   Showtime:
     variables: { weight: 10}
-    template: [name: standard, name: networks]
+    template: [name: standard, {name: networks, search: [Showtime, Paramount+ with Showtime]}]
 
   Shudder:
     variables: { weight: 10}
@@ -1081,6 +1105,10 @@ overlays:
     variables: { weight: 10}
     template: [name: standard, name: networks]
 
+  Xbox Live:
+    variables: { weight: 10}
+    template: [name: standard, name: networks]
+
   YLE:
     variables: { weight: 10}
     template: [name: standard, name: networks]
@@ -1091,7 +1119,7 @@ overlays:
 
   YouTube:
     variables: { weight: 10}
-    template: [name: standard, name: networks]
+    template: [name: standard, {name: networks, search: [YouTube, YouTube Premium]}]
 
   ZDF:
     variables: { weight: 10}

@@ -2,14 +2,14 @@
 #                        Tautulli Charts Collections                         #
 #                 Created by Yozora, Bullmoose20, & Sohjiro                  #
 #          EDITING THIS FILE MAY CAUSE PULLING NEW UPDATES TO FAIL           #
-#         https://metamanager.wiki/en/latest/defaults/chart/tautulli         #
+#           https://kometa.wiki/en/latest/defaults/chart/tautulli            #
 ##############################################################################
 
 external_templates:
-  pmm: templates
+  default: templates
   template_variables:
     collection_section: "020"
-    image: chart/<<mapping_name_encoded>>
+    image: chart/<<style>>/<<mapping_name_encoded>>
 
 templates:
   tautulli:
@@ -25,6 +25,7 @@ templates:
 collections:
   Plex Popular:
     variables:
+      style: color
       key: popular
     template:
       - name: tautulli
@@ -36,6 +37,7 @@ collections:
 
   Plex Watched:
     variables:
+      style: color
       key: watched
     template:
       - name: tautulli

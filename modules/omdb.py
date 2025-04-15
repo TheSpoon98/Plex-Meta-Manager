@@ -13,6 +13,7 @@ class OMDbObj:
         self._data = data
         if data["Response"] == "False":
             raise Failed(f"OMDb Error: {data['Error']} IMDb ID: {imdb_id}")
+
         def _parse(key, is_int=False, is_float=False, is_date=False, replace=None):
             try:
                 value = str(data[key]).replace(replace, '') if replace else data[key]
@@ -22,10 +23,13 @@ class OMDbObj:
                     return float(value)
                 elif is_date:
                     return datetime.strptime(value, "%d %b %Y")
+                elif value == "N/A":
+                    return None
                 else:
                     return value
             except (ValueError, TypeError, KeyError):
                 return None
+
         self.title = _parse("Title")
         self.year = _parse("Year", is_int=True)
         self.released = _parse("Released", is_date=True)
@@ -35,16 +39,26 @@ class OMDbObj:
         self.imdb_rating = _parse("imdbRating", is_float=True)
         self.imdb_votes = _parse("imdbVotes", is_int=True, replace=",")
         self.metacritic_rating = _parse("Metascore", is_int=True)
+        self.rotten_tomatoes = None
+        try:
+            for rating in data["Ratings"]:
+                if rating["Source"] == "Rotten Tomatoes":
+                    data["tempRT"] = rating["Value"] # This is a hack to allow _parse to work without changes
+                    self.rotten_tomatoes = _parse("tempRT", is_int=True, replace="%")
+                    break
+        except KeyError:
+            pass
+
         self.imdb_id = _parse("imdbID")
         self.type = _parse("Type")
         self.series_id = _parse("seriesID")
         self.season_num = _parse("Season", is_int=True)
         self.episode_num = _parse("Episode", is_int=True)
 
-
 class OMDb:
-    def __init__(self, config, params):
-        self.config = config
+    def __init__(self, requests, cache, params):
+        self.requests = requests
+        self.cache = cache
         self.apikey = params["apikey"]
         self.expiration = params["expiration"]
         self.limit = False
@@ -53,16 +67,16 @@ class OMDb:
 
     def get_omdb(self, imdb_id, ignore_cache=False):
         expired = None
-        if self.config.Cache and not ignore_cache:
-            omdb_dict, expired = self.config.Cache.query_omdb(imdb_id, self.expiration)
+        if self.cache and not ignore_cache:
+            omdb_dict, expired = self.cache.query_omdb(imdb_id, self.expiration)
             if omdb_dict and expired is False:
                 return OMDbObj(imdb_id, omdb_dict)
         logger.trace(f"IMDb ID: {imdb_id}")
-        response = self.config.get(base_url, params={"i": imdb_id, "apikey": self.apikey})
+        response = self.requests.get(base_url, params={"apikey": self.apikey, "i": imdb_id})
         if response.status_code < 400:
             omdb = OMDbObj(imdb_id, response.json())
-            if self.config.Cache and not ignore_cache:
-                self.config.Cache.update_omdb(expired, omdb, self.expiration)
+            if self.cache and not ignore_cache:
+                self.cache.update_omdb(expired, omdb, self.expiration)
             return omdb
         else:
             try:

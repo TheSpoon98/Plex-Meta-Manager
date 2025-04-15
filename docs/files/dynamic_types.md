@@ -1,3 +1,7 @@
+---
+hide:
+  - toc
+---
 # Dynamic Collection Types & Data
 
 Every dynamic collection definition requires the `type` attribute which determines the attribute used to dynamically 
@@ -162,7 +166,7 @@ requirements of creating the collection.
     
     **`type` Value:** `imdb_awards`
 
-    **`data` Value:** [Dictionary](../pmm/yaml.md#dictionaries) of Attributes
+    **`data` Value:** Dictionary :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-dictionaries" } of Attributes
 
     ??? blank "`event_id` - Determines the [IMDb Event](https://www.imdb.com/event/) used.<a class="headerlink" href="#imdb-awards-event-id" title="Permanent link">¶</a>"
         
@@ -190,6 +194,14 @@ requirements of creating the collection.
         latest)
 
         **Default:** `latest`
+
+    ??? blank "`increment` - Determines amount incremented.<a class="headerlink" href="#number-increment" title="Permanent link">¶</a>"
+        
+        <div id="number-increment" />Determines the amount incremented from one collection to the other.
+
+        **Allowed Values:** Number greater than 0
+
+        **Default:** `1`
 
     **Valid Library Types:** Movies and Shows
     
@@ -222,6 +234,64 @@ requirements of creating the collection.
               ending: latest
         ```
 
+??? blank "`letterboxd_user_lists` - Collections based on the Lists of Letterboxd Users.<a class="headerlink" href="#letterboxd-user-lists" title="Permanent link">¶</a>"
+
+    <div id="letterboxd-user-lists" />Creates collections for each of the Letterboxd lists that the user has created.
+
+    <hr style="margin: 0px;">
+    
+    **`type` Value:** `letterboxd_user_lists`
+
+    **`data` Value:** Dictionary :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-dictionaries" } of Attributes
+
+    ??? blank "`username` - Determines the Usernames to scan for lists.<a class="headerlink" href="#letterboxd-user-lists-username" title="Permanent link">¶</a>"
+        
+        <div id="letterboxd-user-lists-username" />This determines which Usernames are scanned. 
+
+        **Allowed Values:** Username or list :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-lists" } of Usernames
+
+    ??? blank "`sort_by` - Determines the sort that the lists are returned.<a class="headerlink" href="#letterboxd-user-lists-sort-by" title="Permanent link">¶</a>"
+        
+        <div id="letterboxd-user-lists-sort-by" />Determines the sort that the lists are returned.
+
+        **Allowed Values:** `updated`, `name`, `popularity`, `newest`, `oldest`
+
+        **Default:** `updated`
+
+    ??? blank "`limit` - Determines the number of lists to create collections for.<a class="headerlink" href="#letterboxd-user-lists-limit" title="Permanent link">¶</a>"
+        
+        <div id="letterboxd-user-lists-limit" />Determines the number of lists to create collections for. (`0` is all lists)
+
+        **Allowed Values:** Number 0 or greater
+
+        **Default:** `0`
+
+    **Valid Library Types:** Movies
+    
+    **Key Values:** Letterboxd List URL
+
+    **Key Name Value:** Letterboxd List Title
+
+    **Default `title_format`:** `<<key_name>>`
+
+    ??? tip "Default Template (click to expand)"
+
+        ```yaml
+        default_template:
+          letterboxd_list_details: <<value>>
+        ```
+
+    ???+ example "Example"
+        
+        ```yaml
+        dynamic_collections:
+          Letterboxd User Lists:          # This name is the mapping name
+            type: letterboxd_user_lists
+            data:
+              username: thebigpictures
+              limit: 5
+        ```
+
 ??? blank "`trakt_user_lists` - Collections based on Trakt Lists by users.<a class="headerlink" href="#trakt-user-lists" title="Permanent link">¶</a>"
 
     <div id="trakt-user-lists" />Creates collections for each of the Trakt lists for the specified users. Use `me` to 
@@ -235,7 +305,7 @@ requirements of creating the collection.
     
     **`type` Value:** `trakt_user_lists`
 
-    **`data` Value:** List of Trakt Users (Use `me` to reference the authenticated user)
+    **`data` Value:** List :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-lists" } of Trakt Users (Use `me` to reference the authenticated user)
 
     **Valid Library Types:** Movies and Shows
     
@@ -313,7 +383,7 @@ requirements of creating the collection.
     
     **`type` Value:** `trakt_people_list`
 
-    **`data` Value:** List of Trakt URLs
+    **`data` Value:** List :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-lists" } of Trakt URLs
 
     **Valid Library Types:** Movies and Shows
     
@@ -351,7 +421,7 @@ requirements of creating the collection.
     
     **`type` Value:** `actor`
 
-    **`data` Value:** [Dictionary](../pmm/yaml.md#dictionaries) of Attributes
+    **`data` Value:** Dictionary :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-dictionaries" } of Attributes
 
     ??? blank "`depth` - Determines how many "top" acting credits per item.<a class="headerlink" href="#actor-depth" title="Permanent link">¶</a>"
         
@@ -434,7 +504,7 @@ requirements of creating the collection.
     
     **`type` Value:** `director`
 
-    **`data` Value:** [Dictionary](../pmm/yaml.md#dictionaries) of Attributes
+    **`data` Value:** Dictionary :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-dictionaries" } of Attributes
 
     ??? blank "`depth` - Determines how many "top" directing credits per item.<a class="headerlink" href="#director-depth" title="Permanent link">¶</a>"
         
@@ -517,7 +587,7 @@ requirements of creating the collection.
     
     **`type` Value:** `writer`
 
-    **`data` Value:** [Dictionary](../pmm/yaml.md#dictionaries) of Attributes
+    **`data` Value:** Dictionary :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-dictionaries" } of Attributes
 
     ??? blank "`depth` - Determines how many "top" writing credits per item.<a class="headerlink" href="#writer-depth" title="Permanent link">¶</a>"
         
@@ -600,7 +670,7 @@ requirements of creating the collection.
     
     **`type` Value:** `producer`
 
-    **`data` Value:** [Dictionary](../pmm/yaml.md#dictionaries) of Attributes
+    **`data` Value:** Dictionary :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-dictionaries" } of Attributes
 
     ??? blank "`depth` - Determines how many "top" producing credits per item.<a class="headerlink" href="#producer-depth" title="Permanent link">¶</a>"
         
@@ -792,7 +862,7 @@ requirements of creating the collection.
             type: content_rating
         ```
 
-??? blank "`year` - Collections based on content ratings.<a class="headerlink" href="#year" title="Permanent link">¶</a>"
+??? blank "`year` - Collections based on years.<a class="headerlink" href="#year" title="Permanent link">¶</a>"
 
     <div id="year" />Creates collections for each year found in the library.
 
@@ -831,7 +901,7 @@ requirements of creating the collection.
             type: year
         ```
 
-??? blank "`episode_year` - Collections based on content ratings.<a class="headerlink" href="#episode-year" title="Permanent link">¶</a>"
+??? blank "`episode_year` - Collections based on episode year.<a class="headerlink" href="#episode-year" title="Permanent link">¶</a>"
 
     <div id="episode-year" />Creates collections for each year associated with episodes found in the library.
 
@@ -904,7 +974,7 @@ requirements of creating the collection.
 
         === "Show Default"
 
-            Shows don't inherently have a decade attribute so pmm just passes all years from the decade as a list.
+            Shows don't inherently have a decade attribute so Kometa just passes all years from the decade as a list.
 
             ```yaml
             default_template:
@@ -1404,7 +1474,7 @@ requirements of creating the collection.
     
     **`type` Value:** `number`
 
-    **`data` Value:** [Dictionary](../pmm/yaml.md#dictionaries) of Attributes
+    **`data` Value:** Dictionary :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-dictionaries" } of Attributes
 
     ??? blank "`starting` - Determines the starting number.<a class="headerlink" href="#number-starting" title="Permanent link">¶</a>"
         
@@ -1480,7 +1550,7 @@ requirements of creating the collection.
     
     **`type` Value:** `custom`
 
-    **`data` Value:** [Dictionary](../pmm/yaml.md#dictionaries) with the keys being the `dynamic key` and the values 
+    **`data` Value:** Dictionary :material-information-outline:{ data-tooltip data-tooltip-id="tippy-yaml-dictionaries" } with the keys being the `dynamic key` and the values 
     being the `key name`
 
     **Valid Library Types:** Movies, Shows, Music, and Video
@@ -1505,8 +1575,8 @@ requirements of creating the collection.
             cache_builders: 1
             smart_label: release.desc
             sync_mode: sync
-            mdblist_list: https://mdblist.com/lists/plexmetamanager/<<key>>-movies
-            url_poster: https://raw.githubusercontent.com/meisnate12/Plex-Meta-Manager-Images/master/streaming/<<key_name_encoded>>.jpg
+            mdblist_list: https://mdblist.com/lists/k0meta/<<key>>-movies
+            url_poster: https://raw.githubusercontent.com/Kometa-Team/Default-Images/master/streaming/<<key_name_encoded>>.jpg
         
         dynamic_collections:
           Streaming:
@@ -1515,7 +1585,7 @@ requirements of creating the collection.
               all-4: All 4
               appletv: Apple TV+
               bet: BET+
-              britbox: BritBox
+              itvx: ITVX
               disney: Disney+
               max: Max
               hulu: Hulu
@@ -1530,6 +1600,4 @@ requirements of creating the collection.
               - shared
         ```
 
-{%
-   include-markdown "./dynamic_examples.md"
-%}
+{% include-markdown "./../templates/snippets/dynamic_examples.md" %}

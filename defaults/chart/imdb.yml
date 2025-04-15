@@ -2,14 +2,14 @@
 #                          IMDb Charts Collections                           #
 #                 Created by Yozora, Bullmoose20, & Sohjiro                  #
 #          EDITING THIS FILE MAY CAUSE PULLING NEW UPDATES TO FAIL           #
-#           https://metamanager.wiki/en/latest/defaults/chart/imdb           #
+#             https://kometa.wiki/en/latest/defaults/chart/imdb              #
 ##############################################################################
 
 external_templates:
-  pmm: templates
+  default: templates
   template_variables:
     collection_section: "020"
-    image: chart/<<mapping_name_encoded>>
+    image: chart/<<style>>/<<mapping_name_encoded>>
 
 templates:
   imdb_chart:
@@ -18,6 +18,7 @@ templates:
 collections:
   IMDb Popular:
     variables:
+      style: color
       key: popular
     template:
       - name: imdb_chart
@@ -29,6 +30,7 @@ collections:
 
   IMDb Top 250:
     variables:
+      style: color
       key: top
     template:
       - name: imdb_chart
@@ -40,6 +42,7 @@ collections:
 
   IMDb Lowest Rated:
     variables:
+      style: color
       key: lowest
     imdb_chart: lowest_rated
     template:

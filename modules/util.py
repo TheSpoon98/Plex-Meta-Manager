@@ -1,11 +1,13 @@
-import glob, os, re, requests, ruamel.yaml, signal, sys, time
+import glob, os, re, signal, sys, time
 from datetime import datetime, timedelta
 from modules.logs import MyLogger
 from num2words import num2words
 from pathvalidate import is_valid_filename, sanitize_filename
 from plexapi.audio import Album, Track
-from plexapi.exceptions import BadRequest, NotFound, Unauthorized
 from plexapi.video import Season, Episode, Movie
+from requests.exceptions import HTTPError
+from tenacity import retry_if_exception
+from tenacity.wait import wait_base
 
 try:
     import msvcrt
@@ -43,24 +45,32 @@ class NotScheduled(Exception):
 class NotScheduledRange(NotScheduled):
     pass
 
-class ImageData:
-    def __init__(self, attribute, location, prefix="", is_poster=True, is_url=True, compare=None):
-        self.attribute = attribute
-        self.location = location
-        self.prefix = prefix
-        self.is_poster = is_poster
-        self.is_url = is_url
-        self.compare = compare if compare else location if is_url else os.stat(location).st_size
-        self.message = f"{prefix}{'poster' if is_poster else 'background'} to [{'URL' if is_url else 'File'}] {location}"
 
-    def __str__(self):
-        return str(self.__dict__)
+class retry_if_http_429_error(retry_if_exception):
 
-def retry_if_not_failed(exception):
-    return not isinstance(exception, Failed)
+    def __init__(self):
+        def is_http_429_error(exception: BaseException) -> bool:
+            return isinstance(exception, HTTPError) and exception.response.status_code == 429
 
-def retry_if_not_plex(exception):
-    return not isinstance(exception, (BadRequest, NotFound, Unauthorized, Failed))
+        super().__init__(predicate=is_http_429_error)
+
+
+class wait_for_retry_after_header(wait_base):
+    def __init__(self, fallback):
+        self.fallback = fallback
+
+    def __call__(self, retry_state):
+        exc = retry_state.outcome.exception()
+        if isinstance(exc, HTTPError):
+            retry_after = exc.response.headers.get("Retry-After", None)
+            try:
+                if retry_after is not None:
+                    return int(retry_after)
+            except (TypeError, ValueError):
+                pass
+
+        return self.fallback(retry_state)
+
 
 days_alias = {
     "monday": 0, "mon": 0, "m": 0,
@@ -84,8 +94,9 @@ pretty_months = {
 lower_months = {v.lower(): k for k, v in pretty_months.items()}
 seasons = ["current", "winter", "spring", "summer", "fall"]
 advance_tags_to_edit = {
-    "Movie": ["metadata_language", "use_original_title"],
-    "Show": ["episode_sorting", "keep_episodes", "delete_episodes", "season_display", "episode_ordering", "metadata_language", "use_original_title"],
+    "Movie": ["metadata_language", "use_original_title", "credits_detection"],
+    "Show": ["episode_sorting", "keep_episodes", "delete_episodes", "season_display", "episode_ordering", "metadata_language", "use_original_title", "credits_detection", "audio_language", "subtitle_language", "subtitle_mode"],
+    "Season": ["audio_language", "subtitle_language", "subtitle_mode"],
     "Artist": ["album_sorting"]
 }
 tags_to_edit = {
@@ -100,94 +111,12 @@ collection_mode_options = {
     "show_items": "showItems", "showitems": "showItems"
 }
 image_content_types = ["image/png", "image/jpeg", "image/webp"]
-parental_types = ["nudity", "violence", "profanity", "alcohol", "frightening"]
+parental_types = {"Sex & Nudity": "Nudity", "Violence & Gore": "Violence", "Profanity": "Profanity", "Alcohol, Drugs & Smoking": "Alcohol", "Frightening & Intense Scenes": "Frightening"}
 parental_values = ["None", "Mild", "Moderate", "Severe"]
 parental_levels = {"none": [], "mild": ["None"], "moderate": ["None", "Mild"], "severe": ["None", "Mild", "Moderate"]}
-parental_labels = [f"{t.capitalize()}:{v}" for t in parental_types for v in parental_values]
+parental_labels = [f"{t}:{v}" for t in parental_types.values() for v in parental_values]
 previous_time = None
 start_time = None
-
-def guess_branch(version, env_version, git_branch):
-    if git_branch:
-        return git_branch
-    elif env_version in ["nightly", "develop"]:
-        return env_version
-    elif version[2] > 0:
-        dev_version = get_develop()
-        if version[1] != dev_version[1] or version[2] <= dev_version[2]:
-            return "develop"
-        else:
-            return "nightly"
-    else:
-        return "master"
-
-def current_version(version, branch=None, nightly=False):
-    if nightly or branch == "nightly":
-        return get_nightly()
-    elif branch == "develop":
-        return get_develop()
-    elif version[2] > 0:
-        new_version = get_develop()
-        if version[1] != new_version[1] or new_version[2] >= version[2]:
-            return new_version
-        return get_nightly()
-    else:
-        return get_master()
-
-nightly_version = None
-def get_nightly():
-    global nightly_version
-    if nightly_version is None:
-        nightly_version = get_version("nightly")
-    return nightly_version
-
-develop_version = None
-def get_develop():
-    global develop_version
-    if develop_version is None:
-        develop_version = get_version("develop")
-    return develop_version
-
-master_version = None
-def get_master():
-    global master_version
-    if master_version is None:
-        master_version = get_version("master")
-    return master_version
-
-def get_version(level):
-    try:
-        url = f"https://raw.githubusercontent.com/meisnate12/Plex-Meta-Manager/{level}/VERSION"
-        return parse_version(requests.get(url).content.decode().strip(), text=level)
-    except requests.exceptions.ConnectionError:
-        return "Unknown", "Unknown", 0
-
-def parse_version(version, text="develop"):
-    version = version.replace("develop", text)
-    split_version = version.split(f"-{text}")
-    return version, split_version[0], int(split_version[1]) if len(split_version) > 1 else 0
-
-def quote(data):
-    return requests.utils.quote(str(data))
-
-def download_image(title, image_url, download_directory, filename=None):
-    response = requests.get(image_url, headers=header())
-    if response.status_code == 404:
-        raise Failed(f"Image Error: Not Found on Image URL: {image_url}")
-    if response.status_code >= 400:
-        raise Failed(f"Image Error: {response.status_code} on Image URL: {image_url}")
-    if "Content-Type" not in response.headers or response.headers["Content-Type"] not in image_content_types:
-        raise Failed("Image Not PNG, JPG, or WEBP")
-    new_image = os.path.join(download_directory, f"{filename}") if filename else download_directory
-    if response.headers["Content-Type"] == "image/jpeg":
-        new_image += ".jpg"
-    elif response.headers["Content-Type"] == "image/webp":
-        new_image += ".webp"
-    else:
-        new_image += ".png"
-    with open(new_image, "wb") as handler:
-        handler.write(response.content)
-    return ImageData("asset_directory", new_image, prefix=f"{title}'s ", is_url=False)
 
 def get_image_dicts(group, alias):
     posters = {}
@@ -204,34 +133,6 @@ def get_image_dicts(group, alias):
                 logger.error(f"Metadata Error: {attr} attribute is blank")
     return posters, backgrounds
 
-def pick_image(title, images, prioritize_assets, download_url_assets, item_dir, is_poster=True, image_name=None):
-    image_type = "poster" if is_poster else "background"
-    if image_name is None:
-        image_name = image_type
-    if images:
-        logger.debug(f"{len(images)} {image_type}{'s' if len(images) > 1 else ''} found:")
-        for i in images:
-            logger.debug(f"Method: {i} {image_type.capitalize()}: {images[i]}")
-        if prioritize_assets and "asset_directory" in images:
-            return images["asset_directory"]
-        for attr in ["style_data", f"url_{image_type}", f"file_{image_type}", f"tmdb_{image_type}", "tmdb_profile",
-                     "tmdb_list_poster", "tvdb_list_poster", f"tvdb_{image_type}", "asset_directory", f"pmm_{image_type}",
-                     "tmdb_person", "tmdb_collection_details", "tmdb_actor_details", "tmdb_crew_details", "tmdb_director_details",
-                     "tmdb_producer_details", "tmdb_writer_details", "tmdb_movie_details", "tmdb_list_details",
-                     "tvdb_list_details", "tvdb_movie_details", "tvdb_show_details", "tmdb_show_details"]:
-            if attr in images:
-                if attr in ["style_data", f"url_{image_type}"] and download_url_assets and item_dir:
-                    if "asset_directory" in images:
-                        return images["asset_directory"]
-                    else:
-                        try:
-                            return download_image(title, images[attr], item_dir, image_name)
-                        except Failed as e:
-                            logger.error(e)
-                if attr in ["asset_directory", f"pmm_{image_type}"]:
-                    return images[attr]
-                return ImageData(attr, images[attr], is_poster=is_poster, is_url=attr != f"file_{image_type}")
-
 def add_dict_list(keys, value, dict_map):
     for key in keys:
         if key in dict_map:
@@ -239,9 +140,9 @@ def add_dict_list(keys, value, dict_map):
         else:
             dict_map[key] = [int(value)]
 
-def get_list(data, lower=False, upper=False, split=True, int_list=False, trim=True):
+def get_list(data, lower=False, upper=False, split=True, int_list=False, trim=True, return_none=True):
     if split is True:               split = ","
-    if data is None:                return None
+    if data is None:                return None if return_none else []
     elif isinstance(data, list):    list_data = data
     elif isinstance(data, dict):    return [data]
     elif split is False:            list_data = [str(data)]
@@ -424,13 +325,13 @@ def load_files(files_to_load, method, err_type="Config", schedule=None, lib_vars
         if isinstance(file, dict):
             current = []
             def check_dict(attr, name):
-                if attr in file and (method != "metadata_files" or attr != "pmm"):
+                if attr in file and (method != "metadata_files" or attr not in ["pmm", "default"]):
                     logger.info(f"Reading {attr}: {file[attr]}")
                     if file[attr]:
-                        if attr == "pmm" and file[attr] == "other_award":
-                            logger.error(f"{err_type} Error: The PMM Default other_award has been deprecated. Please visit the wiki for the full list of available award files")
+                        if attr in ["pmm", "default"] and file[attr] == "other_award":
+                            logger.error(f"{err_type} Error: The Kometa Default other_award has been deprecated. Please visit the wiki for the full list of available award files")
                         elif attr == "git" and file[attr].startswith("PMM/"):
-                            current.append(("PMM Default", file[attr][4:]))
+                            current.append(("Default", file[attr][4:]))
                         else:
                             current.append((name, file[attr]))
                     else:
@@ -439,7 +340,8 @@ def load_files(files_to_load, method, err_type="Config", schedule=None, lib_vars
 
             check_dict("url", "URL")
             check_dict("git", "Git")
-            check_dict("pmm", "PMM Default")
+            check_dict("pmm", "Default")
+            check_dict("default", "Default")
             check_dict("repo", "Repo")
             check_dict("file", "File")
             if not single and "folder" in file:
@@ -546,8 +448,8 @@ def is_date_filter(value, modifier, data, final, current_time):
     return False
 
 def is_number_filter(value, modifier, data):
-    return value is None or (modifier == "" and value == data) \
-            or (modifier == ".not" and value != data) \
+    return value is None or (modifier == "" and value != data) \
+            or (modifier == ".not" and value == data) \
             or (modifier == ".gt" and value <= data) \
             or (modifier == ".gte" and value < data) \
             or (modifier == ".lt" and value >= data) \
@@ -617,7 +519,7 @@ def schedule_check(attribute, data, current_time, run_hour, is_all=False):
             non_existing = True
         elif run_time == "never":
             schedule_str += f"\nNever scheduled to run"
-        elif run_time.startswith(("hour", "week", "month", "year", "range")):
+        elif run_time.startswith(("hour", "week", "month", "year", "date", "range")):
             match = re.search("\\(([^)]+)\\)", run_time)
             if not match:
                 logger.error(f"Schedule Error: failed to parse {attribute}: {schedule}")
@@ -689,6 +591,20 @@ def schedule_check(attribute, data, current_time, run_hour, is_all=False):
                         raise ValueError
                 except ValueError:
                     logger.error(f"Schedule Error: yearly {display} must be in the MM/DD format i.e. yearly(11/22)")
+            elif run_time.startswith("date"):
+                try:
+                    if "/" in param:
+                        opt = param.split("/")
+                        month = int(opt[0])
+                        day = int(opt[1])
+                        year = int(opt[2])
+                        schedule_str += f"\nScheduled on {pretty_months[month]} {num2words(day, to='ordinal_num')}, {year}"
+                        if current_time.year == year and current_time.month == month and (current_time.day == day or (current_time.day == last_day.day and day > last_day.day)):
+                            all_check += 1
+                    else:
+                        raise ValueError
+                except ValueError:
+                    logger.error(f"Schedule Error: date {display} must be in the MM/DD/YYYY format i.e. date(12/25/2024)")
             elif run_time.startswith("range"):
                 ranges = []
                 range_pass = False
@@ -727,12 +643,18 @@ def schedule_check(attribute, data, current_time, run_hour, is_all=False):
 def check_int(value, datatype="int", minimum=1, maximum=None, throw=False):
     try:
         value = int(str(value)) if datatype == "int" else float(str(value))
-        if (maximum is None and minimum <= value) or (maximum is not None and minimum <= value <= maximum):
+        if (maximum is None and minimum is None) or (maximum is not None and minimum is None and maximum >= value) or (maximum is None and minimum is not None and minimum <= value) or (maximum is not None and minimum is not None and minimum <= value <= maximum):
             return value
     except ValueError:
         if throw:
             message = f"{value} must be {'an integer' if datatype == 'int' else 'a number'}"
-            raise Failed(f"{message} {minimum} or greater" if maximum is None else f"{message} between {minimum} and {maximum}")
+            if maximum is not None and minimum is None:
+                message = f"{message} {maximum} or less"
+            elif maximum is None and minimum is not None:
+                message = f"{message} {minimum} or greater"
+            elif maximum is not None and minimum is not None:
+                message = f"{message} between {minimum} and {maximum}"
+            raise Failed(message)
         return None
 
 def parse_and_or(error, attribute, data, test_list):
@@ -792,7 +714,7 @@ def parse(error, attribute, data, datatype=None, methods=None, parent=None, defa
     elif datatype == "intlist":
         if value:
             try:
-                return [int(v) for v in value if v] if isinstance(value, list) else [int(value)]
+                return [int(v) for v in value if v] if isinstance(value, list) else get_list(value, int_list=True)
             except ValueError:
                 pass
         return []
@@ -861,7 +783,12 @@ def parse(error, attribute, data, datatype=None, methods=None, parent=None, defa
             if new_value is not None:
                 return new_value
         message = f"{display} {value} must {'each ' if range_split else ''}be {'an integer' if datatype == 'int' else 'a number'}"
-        message = f"{message} {minimum} or greater" if maximum is None else f"{message} between {minimum} and {maximum}"
+        if maximum is not None and minimum is None:
+            message = f"{message} {maximum} or less"
+        elif maximum is None and minimum is not None:
+            message = f"{message} {minimum} or greater"
+        elif maximum is not None and minimum is not None:
+            message = f"{message} between {minimum} and {maximum}"
         if range_split:
             message = f"{message} separated by a {range_split}"
     elif datatype == "date":
@@ -947,6 +874,39 @@ def parse_cords(data, parent, required=False, err_type="Overlay", default=None):
 
     return horizontal_offset, horizontal_align, vertical_offset, vertical_align
 
+def parse_scale(data, parent, err_type="Overlay"):
+    width = None
+    if "scale_width" in data and data["scale_width"] is not None:
+        scale_width = data["scale_width"]
+        per = False
+        if str(scale_width).endswith("%"):
+            scale_width = scale_width[:-1]
+            per = True
+        scale_width = check_num(scale_width)
+        error = f"{err_type} Error: {parent} scale_width: {data['scale_width']} must be a number or a percent"
+        if scale_width is None:
+            raise ValueError(error)
+        if scale_width < 1:
+            raise ValueError(f"{error} greater than 0")
+        width = f"{scale_width}%" if per else scale_width
+
+    height = None
+    if "scale_height" in data and data["scale_height"] is not None:
+        scale_height = data["scale_height"]
+        per = False
+        if str(scale_height).endswith("%"):
+            scale_height = scale_height[:-1]
+            per = True
+        scale_height = check_num(scale_height)
+        error = f"{err_type} Error: {parent} scale_height: {data['scale_height']} must be a number or a percent"
+        if scale_height is None:
+            raise ValueError(error)
+        if scale_height < 1:
+            raise ValueError(f"{error} greater than 0")
+        height = f"{scale_height}%" if per else scale_height
+
+    return width, height
+
 def replace_label(_label, _data):
     replaced = False
     if isinstance(_data, dict):
@@ -1010,36 +970,3 @@ def get_system_fonts():
             return dirs
         system_fonts = [n for d in dirs for _, _, ns in os.walk(d) for n in ns]
     return system_fonts
-
-class YAML:
-    def __init__(self, path=None, input_data=None, check_empty=False, create=False, start_empty=False):
-        self.path = path
-        self.input_data = input_data
-        self.yaml = ruamel.yaml.YAML()
-        self.yaml.width = 100000
-        self.yaml.indent(mapping=2, sequence=2)
-        try:
-            if input_data:
-                self.data = self.yaml.load(input_data)
-            else:
-                if start_empty or (create and not os.path.exists(self.path)):
-                    with open(self.path, 'w'):
-                        pass
-                    self.data = {}
-                else:
-                    with open(self.path, encoding="utf-8") as fp:
-                        self.data = self.yaml.load(fp)
-        except ruamel.yaml.error.YAMLError as e:
-            e = str(e).replace("\n", "\n      ")
-            raise Failed(f"YAML Error: {e}")
-        except Exception as e:
-            raise Failed(f"YAML Error: {e}")
-        if not self.data or not isinstance(self.data, dict):
-            if check_empty:
-                raise Failed("YAML Error: File is empty")
-            self.data = {}
-
-    def save(self):
-        if self.path:
-            with open(self.path, 'w', encoding="utf-8") as fp:
-                self.yaml.dump(self.data, fp)

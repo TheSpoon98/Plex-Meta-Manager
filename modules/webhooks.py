@@ -1,12 +1,85 @@
 from json import JSONDecodeError
 from modules import util
-from modules.util import Failed, YAML
+from modules.util import Failed
 
 logger = util.logger
 
+def get_message(json):
+    message = ""
+    priority = 3
+    if json["event"] == "run_end":
+        priority = 4
+        title = "Run Completed"
+        message = f"Start Time: {json['start_time']}\n" \
+                  f"End Time: {json['end_time']}\n" \
+                  f"Run Time: {json['run_time']}\n" \
+                  f"Collections Created: {json['collections_created']}\n" \
+                  f"Collections Modified: {json['collections_modified']}\n" \
+                  f"Collections Deleted: {json['collections_deleted']}\n" \
+                  f"Items Added: {json['items_added']}\n" \
+                  f"Items Removed: {json['items_removed']}"
+        if json["added_to_radarr"]:
+            message += f"\n{json['added_to_radarr']} Movies Added To Radarr"
+        if json["added_to_sonarr"]:
+            message += f"\n{json['added_to_sonarr']} Movies Added To Sonarr"
+    elif json["event"] == "run_start":
+        priority = 4
+        title = "Run Started"
+        message = json["start_time"]
+    elif json["event"] == "version":
+        priority = 2
+        title = "New Version Available"
+        message = f"Current: {json['current']}\n" \
+                  f"Latest: {json['latest']}\n" \
+                  f"Notes: {json['notes']}"
+    elif json["event"] == "delete":
+        if "library_name" in json:
+            title = "Collection Deleted"
+        else:
+            title = "Playlist Deleted"
+        message = json["message"]
+    else:
+        new_line = "\n"
+        if "server_name" in json:
+            message += f"{new_line if message else ''}Server: {json['server_name']}"
+        if "library_name" in json:
+            message += f"{new_line if message else ''}Library: {json['library_name']}"
+        if "collection" in json:
+            message += f"{new_line if message else ''}Collection: {json['collection']}"
+        if "playlist" in json:
+            message += f"{new_line if message else ''}Playlist: {json['playlist']}"
+        if json["event"] == "error":
+            if "collection" in json:
+                title_name = "Collection"
+            elif "playlist" in json:
+                title_name = "Playlist"
+            elif "library_name" in json:
+                title_name = "Library"
+            else:
+                title_name = "Global"
+            priority = 5
+            title = f"{'Critical ' if json['critical'] else ''}{title_name} Error"
+            message += f"{new_line if message else ''}Error Message: {json['error']}"
+        else:
+            title = f"{'Collection' if 'collection' in json else 'Playlist'} {'Created' if json['created'] else 'Modified'}"
+            if json['radarr_adds']:
+                message += f"{new_line if message else ''}{len(json['radarr_adds'])} Radarr Additions:"
+            if json['sonarr_adds']:
+                message += f"{new_line if message else ''}{len(json['sonarr_adds'])} Sonarr Additions:"
+            message += f"{new_line if message else ''}{len(json['additions'])} Additions:"
+            for add_dict in json['additions']:
+                message += f"\n{add_dict['title']}"
+            message += f"{new_line if message else ''}{len(json['removals'])} Removals:"
+            for add_dict in json['removals']:
+                message += f"\n{add_dict['title']}"
+
+    return message, title, priority
+
+
 class Webhooks:
-    def __init__(self, config, system_webhooks, library=None, notifiarr=None, gotify=None):
+    def __init__(self, config, system_webhooks, library=None, notifiarr=None, gotify=None, ntfy=None):
         self.config = config
+        self.requests = self.config.Requests
         self.error_webhooks = system_webhooks["error"] if "error" in system_webhooks else []
         self.version_webhooks = system_webhooks["version"] if "version" in system_webhooks else []
         self.run_start_webhooks = system_webhooks["run_start"] if "run_start" in system_webhooks else []
@@ -15,6 +88,7 @@ class Webhooks:
         self.library = library
         self.notifiarr = notifiarr
         self.gotify = gotify
+        self.ntfy = ntfy
 
     def _request(self, webhooks, json):
         logger.trace("")
@@ -34,12 +108,15 @@ class Webhooks:
             elif webhook == "gotify":
                 if self.gotify:
                     self.gotify.notification(json)
+            elif webhook == "ntfy":
+                if self.ntfy:
+                    self.ntfy.notification(json)
             else:
                 if webhook.startswith("https://discord.com/api/webhooks"):
                     json = self.discord(json)
                 elif webhook.startswith("https://hooks.slack.com/services"):
                     json = self.slack(json)
-                response = self.config.post(webhook, json=json)
+                response = self.requests.post(webhook, json=json)
             if response is not None:
                 try:
                     response_json = response.json()
@@ -47,7 +124,7 @@ class Webhooks:
                     if webhook == "notifiarr" and self.notifiarr and response.status_code == 400:
                         def remove_from_config(text, hook_cat):
                             if response_json["details"]["response"] == text:
-                                yaml = YAML(self.config.config_path)
+                                yaml = self.requests.file_yaml(self.config.config_path)
                                 changed = False
                                 if hook_cat in yaml.data and yaml.data["webhooks"][hook_cat]:
                                     if isinstance(yaml.data["webhooks"][hook_cat], list) and "notifiarr" in yaml.data["webhooks"][hook_cat]:
@@ -58,13 +135,13 @@ class Webhooks:
                                         yaml.data["webhooks"][hook_cat] = None
                                 if changed:
                                     yaml.save()
-                        remove_from_config("PMM updated trigger is not enabled", "changes")
-                        remove_from_config("PMM created trigger is not enabled", "changes")
-                        remove_from_config("PMM deleted trigger is not enabled", "changes")
-                        remove_from_config("PMM failure trigger is not enabled", "error")
-                        remove_from_config("PMM start/complete trigger is not enabled", "run_start")
-                        remove_from_config("PMM start/complete trigger is not enabled", "run_end")
-                        remove_from_config("PMM app updates trigger is not enabled", "version")
+                        remove_from_config("Kometa updated trigger is not enabled", "changes")
+                        remove_from_config("Kometa created trigger is not enabled", "changes")
+                        remove_from_config("Kometa deleted trigger is not enabled", "changes")
+                        remove_from_config("Kometa failure trigger is not enabled", "error")
+                        remove_from_config("Kometa start/complete trigger is not enabled", "run_start")
+                        remove_from_config("Kometa start/complete trigger is not enabled", "run_end")
+                        remove_from_config("Kometa app updates trigger is not enabled", "version")
                     if "result" in response_json and response_json["result"] == "error" and "details" in response_json and "response" in response_json["details"]:
                         raise Failed(f"Notifiarr Error: {response_json['details']['response']}")
                     if response.status_code >= 400 or ("result" in response_json and response_json["result"] == "error"):
@@ -77,14 +154,14 @@ class Webhooks:
         if self.run_start_webhooks:
             self._request(self.run_start_webhooks, {"event": "run_start", "start_time": start_time.strftime("%Y-%m-%d %H:%M:%S")})
 
-    def version_hooks(self, version, latest_version):
+    def version_hooks(self):
         if self.version_webhooks:
             notes = None
-            if version[1] != latest_version[1]:
+            if self.requests.local.main != self.requests.latest.main:
                 notes = self.config.GitHub.latest_release_notes()
-            elif version[2] and version[2] < latest_version[2]:
-                notes = self.config.GitHub.get_commits(version[2], nightly=self.config.check_nightly)
-            self._request(self.version_webhooks, {"event": "version", "current": version[0], "latest": latest_version[0], "notes": notes})
+            elif self.requests.local.build and self.requests.local.build < self.requests.latest.build:
+                notes = self.config.GitHub.get_commits(self.requests.local.build, nightly=self.requests.branch == "nightly")
+            self._request(self.version_webhooks, {"event": "version", "current": str(self.requests.local), "latest": str(self.requests.latest), "notes": notes})
 
     def end_time_hooks(self, start_time, end_time, run_time, stats):
         if self.run_end_webhooks:
@@ -124,10 +201,10 @@ class Webhooks:
         if self.library:
             thumb = None
             if not poster_url and collection.thumb and next((f for f in collection.fields if f.name == "thumb"), None):
-                thumb = self.config.get_image_encoded(f"{self.library.url}{collection.thumb}?X-Plex-Token={self.library.token}")
+                thumb = self.requests.get_image_encoded(f"{self.library.url}{collection.thumb}?X-Plex-Token={self.library.token}")
             art = None
             if not playlist and not background_url and collection.art and next((f for f in collection.fields if f.name == "art"), None):
-                art = self.config.get_image_encoded(f"{self.library.url}{collection.art}?X-Plex-Token={self.library.token}")
+                art = self.requests.get_image_encoded(f"{self.library.url}{collection.art}?X-Plex-Token={self.library.token}")
             self._request(webhooks, {
                 "event": "changes",
                 "server_name": self.library.PlexServer.friendlyName,
@@ -146,7 +223,7 @@ class Webhooks:
 
     def slack(self, json):
         if json["event"] == "run_end":
-            title = ":white_check_mark: Plex Meta Manager Has Finished a Run"
+            title = ":white_check_mark: Kometa Has Finished a Run"
             rows = [
                 [("*Start Time*", json["start_time"]), ("*End Time*", json["end_time"]), ("*Run Time*", json["run_time"])],
                 [],
@@ -164,10 +241,10 @@ class Webhooks:
                 rows.append([("*Added To Sonarr*", json['added_to_sonarr'])])
 
         elif json["event"] == "run_start":
-            title = ":information_source: Plex Meta Manager Has Started!"
+            title = ":information_source: Kometa Has Started!"
             rows = [[("*Start Time*", json["start_time"])]]
         elif json["event"] == "version":
-            title = "Plex Meta Manager Has a New Version Available"
+            title = "Kometa Has a New Version Available"
             rows = [
                 [("*Current Version*", json["current"]), ("*Latest Version*", json["latest"])],
                 [(json["notes"], )]
@@ -191,7 +268,7 @@ class Webhooks:
             if json["event"] == "delete":
                 title = json["message"]
             elif "error" in json:
-                title = f":warning: Plex Meta Manager Encountered {'a Critical' if json['critical'] else 'an'} Error"
+                title = f":warning: Kometa Encountered {'a Critical' if json['critical'] else 'an'} Error"
                 rows.append([])
                 rows.append([(json["error"], )])
             else:
@@ -313,8 +390,8 @@ class Webhooks:
                     "color": 0x00bc8c
                 }
             ],
-            "username": "Metabot",
-            "avatar_url": "https://github.com/meisnate12/Plex-Meta-Manager/raw/master/.github/pmm.png"
+            "username": "Kobota",
+            "avatar_url": "https://github.com/Kometa-Team/Kometa/raw/master/.github/bot.png"
         }
         if description:
             new_json["embeds"][0]["description"] = description
@@ -330,4 +407,3 @@ class Webhooks:
                     fields.append(field)
             new_json["embeds"][0]["fields"] = fields
         return new_json
-

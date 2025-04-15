@@ -1,7 +1,8 @@
-import requests, time, webbrowser
+import time, webbrowser
 from modules import util
-from modules.util import Failed, TimeoutExpired, YAML
-from retrying import retry
+from modules.request import urlparse
+from modules.util import Failed, TimeoutExpired
+from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_not_exception_type
 
 logger = util.logger
 
@@ -36,8 +37,9 @@ id_types = {
 }
 
 class Trakt:
-    def __init__(self, config, params):
-        self.config = config
+    def __init__(self, requests, read_only, params):
+        self.requests = requests
+        self.read_only = read_only
         self.client_id = params["client_id"]
         self.client_secret = params["client_secret"]
         self.pin = params["pin"]
@@ -137,10 +139,9 @@ class Trakt:
             "redirect_uri": redirect_uri,
             "grant_type": "authorization_code"
         }
-        response = self.config.post(f"{base_url}/oauth/token", json=json_data, headers={"Content-Type": "application/json"})
+        response = self.requests.post(f"{base_url}/oauth/token", json=json_data, headers={"Content-Type": "application/json"})
         if response.status_code != 200:
             raise Failed(f"Trakt Error: ({response.status_code}) {response.reason}")
-            #raise Failed("Trakt Error: Invalid trakt pin. If you're sure you typed it in correctly your client_id or client_secret may be invalid")
         response_json = response.json()
         logger.trace(response_json)
         if not self._save(response_json):
@@ -155,7 +156,7 @@ class Trakt:
             "trakt-api-key": self.client_id
         }
         logger.secret(token)
-        response = self.config.get(f"{base_url}/users/settings", headers=headers)
+        response = self.requests.get(f"{base_url}/users/settings", headers=headers)
         if response.status_code == 423:
             raise Failed("Trakt Error: Account is Locked please Contact Trakt Support")
         if response.status_code != 200:
@@ -172,7 +173,7 @@ class Trakt:
                 "redirect_uri": redirect_uri,
                 "grant_type": "refresh_token"
               }
-            response = self.config.post(f"{base_url}/oauth/token", json=json_data, headers={"Content-Type": "application/json"})
+            response = self.requests.post(f"{base_url}/oauth/token", json=json_data, headers={"Content-Type": "application/json"})
             if response.status_code != 200:
                 return False
             return self._save(response.json())
@@ -180,8 +181,8 @@ class Trakt:
 
     def _save(self, authorization):
         if authorization and self._check(authorization):
-            if self.authorization != authorization and not self.config.read_only:
-                yaml = YAML(self.config_path)
+            if self.authorization != authorization and not self.read_only:
+                yaml = self.requests.file_yaml(self.config_path)
                 yaml.data["trakt"]["pin"] = None
                 yaml.data["trakt"]["authorization"] = {
                     "access_token": authorization["access_token"],
@@ -197,7 +198,7 @@ class Trakt:
             return True
         return False
 
-    @retry(stop_max_attempt_number=6, wait_fixed=10000, retry_on_exception=util.retry_if_not_failed)
+    @retry(stop=stop_after_attempt(6), wait=wait_fixed(10), retry=retry_if_not_exception_type(Failed))
     def _request(self, url, params=None, json_data=None):
         headers = {
             "Content-Type": "application/json",
@@ -219,9 +220,9 @@ class Trakt:
             if pages > 1:
                 params["page"] = current
             if json_data is not None:
-                response = self.config.post(f"{base_url}{url}", json=json_data, headers=headers)
+                response = self.requests.post(f"{base_url}{url}", json=json_data, headers=headers)
             else:
-                response = self.config.get(f"{base_url}{url}", headers=headers, params=params)
+                response = self.requests.get(f"{base_url}{url}", headers=headers, params=params)
             if pages == 1 and "X-Pagination-Page-Count" in response.headers and not params:
                 pages = int(response.headers["X-Pagination-Page-Count"])
             if response.status_code >= 400:
@@ -239,7 +240,16 @@ class Trakt:
     def user_ratings(self, is_movie):
         media = "movie" if is_movie else "show"
         id_type = "tmdb" if is_movie else "tvdb"
-        return {int(i[media]["ids"][id_type]): i["rating"] for i in self._request(f"/users/me/ratings/{media}s")}
+        return {int(i[media]["ids"][id_type]): i["rating"] for i in self._request(f"/users/me/ratings/{media}s") if i[media]["ids"][id_type]}
+
+    def get_episode_rating(self, show_id, season, episode):
+        response = self._request(f"/shows/{show_id}/seasons/{season}/episodes/{episode}/ratings")
+        return response["rating"]
+
+    def get_rating(self, show_id, is_movie):
+        item_type = 'movies' if is_movie else 'shows'
+        response = self._request(f"/{item_type}/{show_id}/ratings")
+        return response["rating"]
 
     def convert(self, external_id, from_source, to_source, media_type):
         path = f"/search/{from_source}/{external_id}"
@@ -251,7 +261,22 @@ class Trakt:
 
     def list_description(self, data):
         try:
-            return self._request(requests.utils.urlparse(data).path)["description"]
+            if "/official/" in data:
+                path = urlparse(data).path.replace("/official/", "/")
+
+                list = self._request(path)
+                list_id = list.get("ids", {}).get("trakt")
+
+                if not list_id:
+                    raise Failed(f"Trakt Error: Could not extract ID for official list {data}")
+
+                metadata = self._request(f"/lists/{list_id}")
+                return metadata.get("description", "")
+
+            else:
+                # Regular user list
+                return self._request(urlparse(data).path)["description"]
+
         except Failed:
             raise Failed(data)
 
@@ -313,7 +338,7 @@ class Trakt:
         return data
 
     def sync_list(self, slug, ids):
-        current_ids = self._list(slug, urlparse=False, fail=False)
+        current_ids = self._list(slug, parse=False, fail=False)
 
         def read_result(data, obj_type, result_type, result_str=None):
             result_str = result_str if result_str else result_type.capitalize()
@@ -351,7 +376,7 @@ class Trakt:
             read_not_found(results, "Remove")
             time.sleep(1)
 
-        trakt_ids = self._list(slug, urlparse=False, trakt_ids=True)
+        trakt_ids = self._list(slug, parse=False, trakt_ids=True)
         trakt_lookup = {f"{ty}_{i_id}": t_id for t_id, i_id, ty in trakt_ids}
         rank_ids = [trakt_lookup[f"{ty}_{i_id}"] for i_id, ty in ids if f"{ty}_{i_id}" in trakt_lookup]
         self._request(f"/users/me/lists/{slug}/items/reorder", json_data={"rank": rank_ids})
@@ -376,9 +401,9 @@ class Trakt:
     def build_user_url(self, user, name):
         return f"{base_url.replace('api.', '')}/users/{user}/lists/{name}"
 
-    def _list(self, data, urlparse=True, trakt_ids=False, fail=True, ignore_other=False):
+    def _list(self, data, parse=True, trakt_ids=False, fail=True, ignore_other=False):
         try:
-            url = requests.utils.urlparse(data).path.replace("/official/", "/") if urlparse else f"/users/me/lists/{data}"
+            url = urlparse(data).path.replace("/official/", "/") if parse else f"/users/me/lists/{data}"
             items = self._request(f"{url}/items")
         except Failed:
             raise Failed(f"Trakt Error: List {data} not found")
@@ -417,7 +442,7 @@ class Trakt:
         return self._parse(items, typeless=chart_type == "popular", item_type="movie" if is_movie else "show", ignore_other=ignore_other)
 
     def get_people(self, data):
-        return {str(i[0][0]): i[0][1] for i in self._list(data) if i[1] == "tmdb_person"}
+        return {str(i[0][0]): i[0][1] for i in self._list(data) if i[1] == "tmdb_person"} # noqa
 
     def validate_list(self, trakt_lists):
         values = util.get_list(trakt_lists, split=False)
@@ -496,7 +521,7 @@ class Trakt:
                 else:
                     if "userlist" not in dict_methods:
                         raise Failed(f"{err_type} Error: {method_name} userlist attribute not found")
-                    og_list = trakt_dict[dict_methods["year"]]
+                    og_list = trakt_dict[dict_methods["userlist"]]
                     if not og_list:
                         raise Failed(f"{err_type} Error: {method_name} userlist attribute is blank")
                     if og_list == "collected":

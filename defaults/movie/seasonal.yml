@@ -2,11 +2,11 @@
 #                            Seasonal Collections                            #
 #                 Created by Yozora, Bullmoose20, & Sohjiro                  #
 #          EDITING THIS FILE MAY CAUSE PULLING NEW UPDATES TO FAIL           #
-#         https://metamanager.wiki/en/latest/defaults/movie/seasonal         #
+#           https://kometa.wiki/en/latest/defaults/movie/seasonal            #
 ##############################################################################
 
 external_templates:
-  pmm: templates
+  default: templates
 
 templates:
   holiday:
@@ -23,6 +23,8 @@ templates:
       imdb_search_<<key>>: <<imdb_search>>
       trakt_list_<<key>>: <<trakt_list>>
       mdblist_list_<<key>>: <<mdblist_list>>
+      delete_collections_named_<<key>>: <<delete_collections_named>>
+      letterboxd_list_<<key>>: <<letterboxd_list>>
       summary_<<key>>: <<summary_format>>
       name_<<key>>: <<name_format>>
       emoji: ""
@@ -36,11 +38,13 @@ templates:
       - imdb_search
       - trakt_list
       - mdblist_list
+      - letterboxd_list
       - summary_format
       - name_format
       - key_name
       - translation_key
       - limit
+      - delete_collections_named
     smart_label:
       sort_by: <<sort_by_<<key>>>>
       limit: <<limit_<<key>>>>
@@ -54,7 +58,9 @@ templates:
     imdb_list: <<imdb_list_<<key>>>>
     imdb_search: <<imdb_search_<<key>>>>
     trakt_list: <<trakt_list_<<key>>>>
+    delete_collections_named: <<delete_collections_named_<<key>>>>
     mdblist_list: <<mdblist_list_<<key>>>>
+    letterboxd_list: <<letterboxd_list_<<key>>>>
     cache_builders: 1
     translation_key: <<translation_key>>
     key_name: <<key_name>>
@@ -101,28 +107,26 @@ dynamic_collections:
       - shared
       - arr
     template_variables:
-      # check1
       emoji:
-        years: "🎊 "
-        valentine: "💘 "
-        patrick: "☘ "
-        easter: "🐰 "
-        mother: "🤱 "
-        memorial: "🪖 "
-        father: "👨 "
-        independence: "🎆 "
-        labor: "⚒ "
-        halloween: "🎃 "
-        veteran: "🎖"
-        thanksgiving: "🦃 "
-        christmas: "🎅 "
-        aapi: "🌊🌺 "
-        disabilities: "♿ "
-        lgbtq: "🏳️‍🌈 "
-        latinx: "🪅 "
-        women: "🚺 "
-        black_history: "✊ 🏿 "
-      # check2
+        years: ""
+        valentine: ""
+        patrick: ""
+        easter: ""
+        mother: ""
+        memorial: ""
+        father: ""
+        independence: ""
+        labor: ""
+        halloween: ""
+        veteran: ""
+        thanksgiving: ""
+        christmas: ""
+        aapi: ""
+        disabilities: ""
+        lgbtq: ""
+        latinx: ""
+        women: ""
+        black_history: ""
       schedule:
         years: range(12/26-01/04)
         valentine: range(02/01-02/29)
@@ -143,40 +147,72 @@ dynamic_collections:
         lgbtq: range(05/31-06/30)
         latinx: range(09/15-10/15)
         women: range(02/28-03/31)
-      # check3
-      imdb_list:
-        years: https://www.imdb.com/list/ls066838460/
-        valentine:
-          - https://www.imdb.com/list/ls000094398/
-          - https://www.imdb.com/list/ls057783436/
-          - https://www.imdb.com/list/ls064427905/
-        patrick: https://www.imdb.com/list/ls063934595/
-        easter:
-          - https://www.imdb.com/list/ls062665509/
-          - https://www.imdb.com/list/ls051733651/
-        mother: https://www.imdb.com/list/ls072551197/
-        memorial: https://www.imdb.com/list/ls561621160/
-        father: https://www.imdb.com/list/ls020471057/
-        independence:
-          - https://www.imdb.com/list/ls068664510/
-          - https://www.imdb.com/list/ls080925875/
-        labor: https://www.imdb.com/list/ls002014923/
-        halloween:
-          - https://www.imdb.com/list/ls023118929/
-          - https://www.imdb.com/list/ls000099714/
-        veteran:
-          - https://www.imdb.com/list/ls565595526/
-        thanksgiving:
-          - https://www.imdb.com/list/ls000835734/
-          - https://www.imdb.com/list/ls091597850/
-        christmas: https://www.imdb.com/list/ls000096828/
-      # check4
       imdb_search:
+        years:
+          list.any: ls066838460
+          limit: 500
+        black_history:
+          list.any: ls023525790
+          limit: 500
+        disabilities:
+          keyword.any: disability
+          limit: 500
+        valentine:
+          list.any:
+            - ls032692441
+            - ls000094398
+            - ls057783436
+            - ls064427905
+          limit: 500
+        patrick:
+          list.any: ls067580975
+          limit: 500
+        easter:
+          list.any:
+            - ls062665509
+            - ls051733651
+          limit: 500
+        mother:
+          keyword.any: motherhood, pregnancy
+          limit: 500
+        memorial:
+          list.any: ls526590990
+          limit: 500
+        father:
+          keyword.any: fatherhood
+          limit: 500
+        independence:
+          list.any:
+            - ls561449172
+            - ls541213215
+            - ls068664510
+            - ls080925875
+          limit: 500
+        labor:
+          list.any: ls002014923
+          limit: 500
+        lgbtq:
+          list.any: ls080580859
+          limit: 500
+        halloween:
+          list.any:
+            - ls546214737
+            - ls023118929
+            - ls000099714
+          limit: 500
+        veteran:
+          list.any:
+            - ls526590990
+            - ls565595526
+          limit: 500
+        thanksgiving:
+          keyword.any: thanksgiving
+          limit: 500
         women:
-          keyword.any: women in film, womens rights, womens suffrage
+          type: movie
+          keyword.any: women in film, women's rights, women's suffrage, womens rights, womens suffrage
           sort_by: rating.desc
           limit: 500
-      # check5
       tmdb_collection:
         halloween:
           - 185103    # Hotel Transylvania
@@ -189,26 +225,43 @@ dynamic_collections:
           - 8091      # Alien Collection
           - 2980      # Ghostbusters
           - 751156    # Hocus Pocus
-      # check6
       tmdb_movie:
         halloween:
           - 23437    # A Nightmare on Elm Street (2010)
-      # check7
       mdblist_list:
         aapi:
-          - https://mdblist.com/lists/plexmetamanager/asian-american-pacific-islander-heritage-month
+          - https://mdblist.com/lists/k0meta/asian-american-pacific-islander-heritage-month
+        christmas:
+          - https://mdblist.com/lists/k0meta/external/46597
         disabilities:
-          - https://mdblist.com/lists/plexmetamanager/day-of-persons-with-disabilities
+          - https://mdblist.com/lists/k0meta/day-of-persons-with-disabilities
         lgbtq:
-          - https://mdblist.com/lists/plexmetamanager/lgbtq-pride-month
+          - https://mdblist.com/lists/k0meta/lgbtq-pride-month
         latinx:
-          - https://mdblist.com/lists/plexmetamanager/latinx-heritage-month
-      # check8
-      trakt_list:
+          - https://mdblist.com/lists/k0meta/latinx-heritage-month
+      letterboxd_list:
         black_history:
-          - https://trakt.tv/users/hoochzilla/lists/black-cinema?display=movie&sort=title,asc
-          - https://trakt.tv/users/bluephi8/lists/black-history?display=movie&sort=title,asc
-      # check9
+          - https://letterboxd.com/mardarrius/list/black-is-beautiful/
+      delete_collections_named:
+        years: 🎊 New Year's Day Movies
+        valentine: 💘 Valentine's Day Movies
+        patrick: ☘ St. Patrick's Day Movies
+        easter: 🐰 Easter Movies
+        mother: 🤱 Mother's Day Movies
+        memorial: 🪖 Memorial Day Movies
+        father: 👨 Father's Day Movies
+        independence: 🎆 Independence Day Movies
+        labor: ⚒ Labor Day Movies
+        halloween: 🎃 Halloween Movies
+        veteran: 🎖 Veteran's Day Movies
+        thanksgiving: 🦃 Thanksgiving Movies
+        christmas: 🎅 Christmas Movies
+        aapi: 🌊🌺 Asian American Pacific Islander Movies
+        disabilities: ♿ Disability Month Movies
+        black_history: ✊ 🏿 Black History Month Movies
+        lgbtq: L🏳️‍🌈 LGBTQ Month Movies
+        latinx: 🪅 National Hispanic Heritage Movies
+        women: 🚺 Women's History Month Movies
       visible_home:
         default: true
       visible_shared:
